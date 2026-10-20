@@ -1,0 +1,171 @@
+"""Storage: the meta-progression, on the desktop as in the browser.
+
+A die-and-retry has no run to save: a sector is short and starts over. What
+survives is the META: the meta-alloy balance, the hangar upgrades, the
+sectors unlocked, the deaths and the best time per sector, and the loadout
+the ship had when it entered each sector. On the desktop, `saves/meta.json`;
+in the browser (pygbag), the localStorage.
+
+Also the game log (`log`, `setup_logging`): it writes next to the saves, in
+`saves/maelstrom.log`.
+"""
+
+import json
+import logging
+import os
+import sys
+
+from settings.balance import LEVELS, MISSILE_START
+from settings.ui import PROJECT_DIR, WEB
+
+
+SAVE_DIR = os.path.join(PROJECT_DIR, "saves")
+STORE_PREFIX = "maelstrom."   # prefix of the keys in the browser storage
+
+# Game log: one logger for the whole game, configured by setup_logging()
+log = logging.getLogger("maelstrom")
+LOG_FILE = (os.environ.get("MAELSTROM_LOG_FILE")
+            or os.path.join(SAVE_DIR, "maelstrom.log"))
+
+
+def setup_logging():
+    """Configure the logger once (called at the start of `screen.init()`).
+
+    The level is set by the environment variable `MAELSTROM_LOG`
+    (`DEBUG`, `INFO`...), `WARNING` by default. Two outputs: `stdout`
+    always, and `LOG_FILE` outside the browser (no durable file system
+    there).
+    """
+    if log.handlers:                 # already configured: do not stack
+        return
+    level = getattr(logging, os.environ.get("MAELSTROM_LOG", "WARNING").upper(),
+                    logging.WARNING)
+    log.setLevel(level)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%H:%M:%S")
+    stream = logging.StreamHandler(sys.stdout)
+    stream.setFormatter(fmt)
+    log.addHandler(stream)
+    if not WEB:
+        try:
+            os.makedirs(os.path.dirname(LOG_FILE) or ".", exist_ok=True)
+            file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+            file_handler.setFormatter(fmt)
+            log.addHandler(file_handler)
+        except OSError:
+            pass                     # a read-only disk must not stop the game
+
+
+def _local_storage():
+    """The browser storage, or None outside the browser (or when refused)."""
+    if not WEB:
+        return None
+    try:
+        import platform as _platform
+        return _platform.window.localStorage
+    except Exception:
+        return None
+
+
+def store_read(name):
+    """Reads a JSON document back, or None. `name` is a file name without path."""
+    store = _local_storage()
+    if store is not None:
+        try:
+            raw = store.getItem(STORE_PREFIX + name)
+            return json.loads(raw) if raw else None
+        except Exception:
+            return None
+    try:
+        with open(os.path.join(SAVE_DIR, name), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def store_write(name, data):
+    """Writes a JSON document (overwriting the previous one). False on failure."""
+    store = _local_storage()
+    if store is not None:
+        try:
+            store.setItem(STORE_PREFIX + name, json.dumps(data))
+        except Exception:
+            log.warning("browser storage refused %s", name)
+            return False
+        return True
+    try:
+        os.makedirs(SAVE_DIR, exist_ok=True)
+        with open(os.path.join(SAVE_DIR, name), "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except OSError as err:
+        log.warning("cannot write %s: %s", name, err)
+        return False
+    return True
+
+
+# ----------------------------------------------------------------------
+#  Meta-progression
+# ----------------------------------------------------------------------
+
+META_VERSION = 1
+META_NAME = "meta.json"
+
+
+def base_loadout():
+    """What the ship carries when it enters the first sector."""
+    return {"weapon": "pulse", "level": 1, "missiles": MISSILE_START}
+
+
+def default_meta():
+    count = len(LEVELS)
+    return {
+        "alloys": 0,
+        "hangar": {},
+        "unlocked": 1,               # number of sectors open
+        "deaths": [0] * count,
+        "best": [None] * count,      # best clear time, seconds
+        "loadouts": [None] * count,  # ship loadout when entering each sector
+        "won": False,
+    }
+
+
+def _loadout_ok(item):
+    return (isinstance(item, dict) and isinstance(item.get("weapon"), str)
+            and isinstance(item.get("level"), int)
+            and isinstance(item.get("missiles"), int))
+
+
+def read_meta():
+    """Reads the meta back. Always a usable dict: every field is REBUILT,
+    so a file damaged or tinkered with by hand cannot crash a screen."""
+    meta = default_meta()
+    data = store_read(META_NAME)
+    if not isinstance(data, dict) or data.get("version") != META_VERSION:
+        return meta
+    count = len(LEVELS)
+    try:
+        meta["alloys"] = max(0, int(data.get("alloys", 0)))
+        hangar = data.get("hangar", {})
+        if isinstance(hangar, dict):
+            meta["hangar"] = {str(k): max(0, int(v)) for k, v in hangar.items()}
+        meta["unlocked"] = max(1, min(count, int(data.get("unlocked", 1))))
+        for field in ("deaths", "best", "loadouts"):
+            values = data.get(field)
+            if isinstance(values, list):
+                for i, v in enumerate(values[:count]):
+                    meta[field][i] = v
+        meta["deaths"] = [max(0, int(d or 0)) for d in meta["deaths"]]
+        meta["best"] = [float(b) if isinstance(b, (int, float)) else None
+                        for b in meta["best"]]
+        meta["loadouts"] = [lo if _loadout_ok(lo) else None
+                            for lo in meta["loadouts"]]
+        meta["won"] = bool(data.get("won", False))
+    except (TypeError, ValueError):
+        return default_meta()
+    return meta
+
+
+def write_meta(meta):
+    """Writes the meta (overwriting the previous one). False if refused."""
+    data = dict(meta)
+    data["version"] = META_VERSION
+    return store_write(META_NAME, data)

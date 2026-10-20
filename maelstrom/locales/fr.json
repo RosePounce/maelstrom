@@ -1,0 +1,171 @@
+{
+  "language": { "name": "Francais" },
+  "game": { "subtitle": "Guerre thargoide" },
+
+  "menu": {
+    "home_subtitle": "Pleiades, 3310 : les Thargoides sont revenus",
+    "card_campaign": "Campagne",
+    "card_campaign_sub": "Quatre secteurs, quatre Intercepteurs. Mourir, apprendre, recommencer.",
+    "card_hangar": "Hangar",
+    "card_hangar_sub": "Ameliorer le vaisseau avec le meta-alliage recupere.",
+    "btn_options": "Options",
+    "btn_quit": "Quitter",
+    "btn_back": "Retour",
+    "btn_cancel": "Annuler",
+    "confirm_quit": "Quitter le jeu ?",
+    "options_title": "OPTIONS",
+    "fullscreen_on": "Plein ecran : oui   (F11)",
+    "fullscreen_off": "Plein ecran : non   (F11)",
+    "alloy_balance": "Meta-alliage : {alloys}",
+    "language": "Langue : {name}"
+  },
+
+  "sectors": {
+    "title": "SECTEURS",
+    "subtitle": "Choisir le secteur a liberer",
+    "number": "Secteur {n}",
+    "locked": "Verrouille",
+    "locked_sub": "Liberer le secteur precedent.",
+    "deaths": "Morts : {deaths}",
+    "best": "Record : {time:.0f} s",
+    "not_cleared": "Pas encore libere",
+    "boss": "Boss : {name}",
+    "controls_help": [
+      "Deplacement : fleches, ZQSD ou WASD - ou glisser a la souris / au doigt",
+      "Tir automatique    Espace ou bouton AX : missiles AX    Echap ou P : pause"
+    ]
+  },
+
+  "hangar": {
+    "title": "HANGAR",
+    "subtitle": "Ameliorations permanentes, payees en meta-alliage",
+    "line": "{name:<24} Nv {level}/{max}",
+    "maxed": "MAX",
+    "hint": "Survoler une ligne : le detail.   Clic : acheter.",
+    "items": {
+      "hull": { "name": "Coque renforcee", "desc": "+20 points de coque." },
+      "shield": { "name": "Generateur de bouclier", "desc": "+15 points de bouclier." },
+      "regen": { "name": "Recharge du bouclier", "desc": "Le bouclier se recharge 25 % plus vite." },
+      "damage": { "name": "Munitions anti-xeno", "desc": "+10 % de degats pour toutes les armes." },
+      "rate": { "name": "Refroidissement", "desc": "+8 % de cadence de tir." },
+      "missiles": { "name": "Soute a missiles AX", "desc": "+1 missile AX au depart de chaque secteur." },
+      "magnet": { "name": "Drone de collecte", "desc": "Les bonus sont attires de plus loin." },
+      "dampers": { "name": "Amortisseurs de flux", "desc": "Les malus durent 18 % moins longtemps." },
+      "salvage": { "name": "Recuperation", "desc": "+15 % de chances qu'un ennemi lache un conteneur." }
+    }
+  },
+
+  "levels": {
+    "merope": { "name": "Ceinture de Merope", "lore": "Champ d'asteroides, premiers essaims." },
+    "oracle": { "name": "Ruines de l'Oracle", "lore": "Debris de la station. Maraudeurs et mines." },
+    "pleiades": { "name": "Nebuleuse des Pleiades", "lore": "Les Berserkers gardent la nebuleuse." },
+    "maelstrom": { "name": "Coeur du Maelstrom", "lore": "Le nid. Tout ce qu'ils ont." }
+  },
+
+  "bosses": {
+    "cyclops": "Cyclope",
+    "basilisk": "Basilic",
+    "medusa": "Meduse",
+    "hydra": "Hydre"
+  },
+
+  "weapons": {
+    "pulse": { "name": "Laser a impulsion", "letter": "L" },
+    "frag": { "name": "Canon a fragmentation", "letter": "F" },
+    "rail": { "name": "Canon a rails", "letter": "R" }
+  },
+
+  "pickups": {
+    "weapon": { "name": "Module d'arme" },
+    "shield": { "name": "Banque de cellules", "letter": "S" },
+    "repair": { "name": "Limpet de reparation", "letter": "+" },
+    "missiles": { "name": "Missiles AX", "letter": "AX" },
+    "overcharge": { "name": "Surcharge", "letter": ">>" },
+    "alloy": { "name": "Meta-alliage", "letter": "" },
+    "caustic": { "name": "Caustique !", "letter": "C" },
+    "shutdown": { "name": "Onde d'arret !", "letter": "!" },
+    "overheat": { "name": "Surchauffe !", "letter": "~" },
+    "jamming": { "name": "Brouillage !", "letter": "#" },
+    "mystery": { "letter": "?" }
+  },
+
+  "effects": {
+    "overcharge": "SURCHARGE",
+    "caustic": "CAUSTIQUE",
+    "shutdown": "ARRET DES SYSTEMES",
+    "overheat": "SURCHAUFFE",
+    "jamming": "BROUILLAGE"
+  },
+
+  "combat": {
+    "weapon_up": "{name} Nv {level}",
+    "weapon_maxed": "Arme au maximum : +{alloys} meta-alliage",
+    "alloy_gain": "+{amount}"
+  },
+
+  "hud": {
+    "hull": "Coque",
+    "shield": "Bouclier",
+    "weapon": "{name}  Nv {level}",
+    "missiles": "AX x{count}",
+    "alloys": "Meta-alliage +{alloys}",
+    "sector": "{n}. {name}",
+    "effect_line": "{label}  {time:.0f} s",
+    "btn_pause": "Pause",
+    "btn_ax": "AX"
+  },
+
+  "banner": {
+    "sector": "SECTEUR {n}",
+    "boss_warning": "INTERCEPTEUR EN APPROCHE",
+    "boss_warning_sub": "{name} - {hearts} coeurs",
+    "boss_hearts": "{name}   coeur {heart}/{hearts}",
+    "boss_exposed": "COEUR EXPOSE",
+    "heart_down": "COEUR DETRUIT",
+    "checkpoint": "Point de reprise enregistre"
+  },
+
+  "pause": {
+    "title": "PAUSE",
+    "btn_resume": "Reprendre",
+    "btn_restart": "Recommencer le secteur",
+    "btn_menu": "Retour au menu",
+    "btn_report_bug": "Signaler un bug"
+  },
+
+  "dead": {
+    "title": "VAISSEAU DETRUIT",
+    "progress": "Progression : {pct:.0f} %",
+    "boss": "{name} : {hearts} coeur(s) restant(s)",
+    "alloys": "Meta-alliage recupere : +{alloys}",
+    "deaths": "Morts sur ce secteur : {deaths}",
+    "btn_retry": "Reessayer   (Entree)",
+    "btn_retry_boss": "Reprendre a l'Intercepteur   (Entree)",
+    "btn_retry_start": "Depuis le debut du secteur",
+    "btn_hangar": "Hangar"
+  },
+
+  "clear": {
+    "title": "SECTEUR LIBERE",
+    "time": "Temps : {time:.0f} s",
+    "kills": "Thargoides detruits : {kills}",
+    "deaths": "Morts sur ce secteur : {deaths}",
+    "btn_next": "Secteur suivant   (Entree)"
+  },
+
+  "victory": {
+    "title": "LES PLEIADES SONT LIBEREES",
+    "sub": "L'Hydre est tombee. Le Maelstrom se tait... pour l'instant."
+  },
+
+  "bug": {
+    "title": "SIGNALER UN BUG",
+    "hint": "Decris ce qui ne va pas. L'ecran et l'essai sont joints.",
+    "placeholder": "Ce qui s'est passe...",
+    "btn_save": "Enregistrer",
+    "btn_cancel": "Annuler",
+    "count": "{count}/{max}",
+    "saved": "Rapport enregistre : saves/bugs/{folder}",
+    "failed": "Rapport non enregistre (disque refuse)"
+  }
+}

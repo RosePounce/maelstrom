@@ -1,0 +1,171 @@
+{
+  "language": { "name": "English" },
+  "game": { "subtitle": "Thargoid War" },
+
+  "menu": {
+    "home_subtitle": "Pleiades, 3310: the Thargoids have returned",
+    "card_campaign": "Campaign",
+    "card_campaign_sub": "Four sectors, four Interceptors. Die, learn, start over.",
+    "card_hangar": "Hangar",
+    "card_hangar_sub": "Upgrade the ship with salvaged Meta-Alloy.",
+    "btn_options": "Options",
+    "btn_quit": "Quit",
+    "btn_back": "Back",
+    "btn_cancel": "Cancel",
+    "confirm_quit": "Quit the game?",
+    "options_title": "OPTIONS",
+    "fullscreen_on": "Fullscreen: on   (F11)",
+    "fullscreen_off": "Fullscreen: off   (F11)",
+    "alloy_balance": "Meta-Alloy: {alloys}",
+    "language": "Language: {name}"
+  },
+
+  "sectors": {
+    "title": "SECTORS",
+    "subtitle": "Choose the sector to clear",
+    "number": "Sector {n}",
+    "locked": "Locked",
+    "locked_sub": "Clear the previous sector.",
+    "deaths": "Deaths: {deaths}",
+    "best": "Best: {time:.0f} s",
+    "not_cleared": "Not cleared yet",
+    "boss": "Boss: {name}",
+    "controls_help": [
+      "Move: arrows, ZQSD or WASD - or drag with the mouse / finger",
+      "Auto-fire    Space or AX button: AX missiles    Esc or P: pause"
+    ]
+  },
+
+  "hangar": {
+    "title": "HANGAR",
+    "subtitle": "Permanent upgrades, paid in Meta-Alloy",
+    "line": "{name:<24} Lv {level}/{max}",
+    "maxed": "MAX",
+    "hint": "Hover a line for details.   Click to buy.",
+    "items": {
+      "hull": { "name": "Reinforced hull", "desc": "+20 hull points." },
+      "shield": { "name": "Shield generator", "desc": "+15 shield points." },
+      "regen": { "name": "Shield recharge", "desc": "The shield recharges 25% faster." },
+      "damage": { "name": "Anti-Xeno munitions", "desc": "+10% damage for every weapon." },
+      "rate": { "name": "Cooling", "desc": "+8% rate of fire." },
+      "missiles": { "name": "AX missile rack", "desc": "+1 AX missile at the start of each sector." },
+      "magnet": { "name": "Collector limpet", "desc": "Bonuses are drawn in from farther away." },
+      "dampers": { "name": "Flux dampers", "desc": "Maluses last 18% less time." },
+      "salvage": { "name": "Salvage", "desc": "+15% chance an enemy drops a container." }
+    }
+  },
+
+  "levels": {
+    "merope": { "name": "Merope Belt", "lore": "Asteroid field, the first swarms." },
+    "oracle": { "name": "Oracle Ruins", "lore": "Station debris. Marauders and mines." },
+    "pleiades": { "name": "Pleiades Nebula", "lore": "Berserkers guard the nebula." },
+    "maelstrom": { "name": "Heart of the Maelstrom", "lore": "The nest. Everything they have." }
+  },
+
+  "bosses": {
+    "cyclops": "Cyclops",
+    "basilisk": "Basilisk",
+    "medusa": "Medusa",
+    "hydra": "Hydra"
+  },
+
+  "weapons": {
+    "pulse": { "name": "Pulse laser", "letter": "P" },
+    "frag": { "name": "Frag cannon", "letter": "F" },
+    "rail": { "name": "Rail gun", "letter": "R" }
+  },
+
+  "pickups": {
+    "weapon": { "name": "Weapon module" },
+    "shield": { "name": "Shield Cell Bank", "letter": "S" },
+    "repair": { "name": "Repair limpet", "letter": "+" },
+    "missiles": { "name": "AX missiles", "letter": "AX" },
+    "overcharge": { "name": "Overcharge", "letter": ">>" },
+    "alloy": { "name": "Meta-Alloy", "letter": "" },
+    "caustic": { "name": "Caustic!", "letter": "C" },
+    "shutdown": { "name": "Shutdown field!", "letter": "!" },
+    "overheat": { "name": "Overheat!", "letter": "~" },
+    "jamming": { "name": "Jamming!", "letter": "#" },
+    "mystery": { "letter": "?" }
+  },
+
+  "effects": {
+    "overcharge": "OVERCHARGE",
+    "caustic": "CAUSTIC",
+    "shutdown": "SYSTEMS SHUTDOWN",
+    "overheat": "OVERHEAT",
+    "jamming": "JAMMING"
+  },
+
+  "combat": {
+    "weapon_up": "{name} Lv {level}",
+    "weapon_maxed": "Weapon maxed: +{alloys} Meta-Alloy",
+    "alloy_gain": "+{amount}"
+  },
+
+  "hud": {
+    "hull": "Hull",
+    "shield": "Shield",
+    "weapon": "{name}  Lv {level}",
+    "missiles": "AX x{count}",
+    "alloys": "Meta-Alloy +{alloys}",
+    "sector": "{n}. {name}",
+    "effect_line": "{label}  {time:.0f} s",
+    "btn_pause": "Pause",
+    "btn_ax": "AX"
+  },
+
+  "banner": {
+    "sector": "SECTOR {n}",
+    "boss_warning": "INTERCEPTOR APPROACHING",
+    "boss_warning_sub": "{name} - {hearts} hearts",
+    "boss_hearts": "{name}   heart {heart}/{hearts}",
+    "boss_exposed": "HEART EXPOSED",
+    "heart_down": "HEART DESTROYED",
+    "checkpoint": "Checkpoint saved"
+  },
+
+  "pause": {
+    "title": "PAUSE",
+    "btn_resume": "Resume",
+    "btn_restart": "Restart sector",
+    "btn_menu": "Back to menu",
+    "btn_report_bug": "Report a bug"
+  },
+
+  "dead": {
+    "title": "SHIP DESTROYED",
+    "progress": "Progress: {pct:.0f}%",
+    "boss": "{name}: {hearts} heart(s) left",
+    "alloys": "Meta-Alloy salvaged: +{alloys}",
+    "deaths": "Deaths on this sector: {deaths}",
+    "btn_retry": "Retry   (Enter)",
+    "btn_retry_boss": "Resume at the Interceptor   (Enter)",
+    "btn_retry_start": "From the start of the sector",
+    "btn_hangar": "Hangar"
+  },
+
+  "clear": {
+    "title": "SECTOR CLEARED",
+    "time": "Time: {time:.0f} s",
+    "kills": "Thargoids destroyed: {kills}",
+    "deaths": "Deaths on this sector: {deaths}",
+    "btn_next": "Next sector   (Enter)"
+  },
+
+  "victory": {
+    "title": "THE PLEIADES ARE FREE",
+    "sub": "The Hydra has fallen. The Maelstrom falls silent... for now."
+  },
+
+  "bug": {
+    "title": "REPORT A BUG",
+    "hint": "Describe what went wrong. The screen and the attempt are attached.",
+    "placeholder": "What happened...",
+    "btn_save": "Save",
+    "btn_cancel": "Cancel",
+    "count": "{count}/{max}",
+    "saved": "Report saved: saves/bugs/{folder}",
+    "failed": "Report not saved (disk refused)"
+  }
+}
