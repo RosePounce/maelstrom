@@ -20,6 +20,20 @@
     "language": "Language: {name}"
   },
 
+  "ships": {
+    "title": "SHIP",
+    "subtitle": "Choose your starting fighter",
+    "start": "Start the campaign   (Enter)",
+    "stat_hull": "Hull",
+    "stat_shield": "Shield",
+    "stat_speed": "Speed",
+    "stat_damage": "Damage",
+    "krait": {"name": "Krait Mk II", "desc": "All-rounder: good speed, heavy AX loadout. The interception benchmark."},
+    "chieftain": {"name": "Alliance Chieftain", "desc": "Agile with a tough hull. Ideal to learn to master Interceptors."},
+    "type10": {"name": "Type-10 Defender", "desc": "Behemoth: huge hull and heavy guns, but slow and ponderous."},
+    "mamba": {"name": "Mamba", "desc": "Glass cannon: very fast and high damage, but fragile."}
+  },
+
   "sectors": {
     "title": "SECTORS",
     "subtitle": "Choose the sector to clear",
@@ -76,16 +90,16 @@
   },
 
   "pickups": {
-    "weapon": { "name": "Weapon module" },
-    "shield": { "name": "Shield Cell Bank", "letter": "S" },
-    "repair": { "name": "Repair limpet", "letter": "+" },
-    "missiles": { "name": "AX missiles", "letter": "AX" },
-    "overcharge": { "name": "Overcharge", "letter": ">>" },
-    "alloy": { "name": "Meta-Alloy", "letter": "" },
-    "caustic": { "name": "Caustic!", "letter": "C" },
-    "shutdown": { "name": "Shutdown field!", "letter": "!" },
-    "overheat": { "name": "Overheat!", "letter": "~" },
-    "jamming": { "name": "Jamming!", "letter": "#" },
+    "weapon": { "name": "Weapon module", "info": "levels up or swaps the weapon" },
+    "shield": { "name": "Shield Cell Bank", "letter": "S", "info": "shield to full" },
+    "repair": { "name": "Repair limpet", "letter": "+", "info": "repairs hull + caustic" },
+    "missiles": { "name": "AX missiles", "letter": "AX", "info": "refills AX missiles" },
+    "overcharge": { "name": "Overcharge", "letter": ">>", "info": "fire rate x1.7", "tag": "x1.7" },
+    "alloy": { "name": "Meta-Alloy", "letter": "", "info": "bonus Meta-Alloy" },
+    "caustic": { "name": "Caustic!", "letter": "C", "info": "hull melts, shield or not", "tag": "-hull" },
+    "shutdown": { "name": "Shutdown field!", "letter": "!", "info": "no fire, no recharge, slowed", "tag": "weapons off" },
+    "overheat": { "name": "Overheat!", "letter": "~", "info": "fire rate halved", "tag": "/2" },
+    "jamming": { "name": "Jamming!", "letter": "#", "info": "slowed, torn picture", "tag": "slow" },
     "mystery": { "letter": "?" }
   },
 
@@ -110,7 +124,7 @@
     "missiles": "AX x{count}",
     "alloys": "Meta-Alloy +{alloys}",
     "sector": "{n}. {name}",
-    "effect_line": "{label}  {time:.0f} s",
+    "effect_line": "{label}  {tag}   {time:.0f} s",
     "btn_pause": "Pause",
     "btn_ax": "AX"
   },
@@ -130,7 +144,9 @@
     "btn_resume": "Resume",
     "btn_restart": "Restart sector",
     "btn_menu": "Back to menu",
-    "btn_report_bug": "Report a bug"
+    "btn_report_bug": "Report a bug",
+    "legend_bonus": "BONUSES",
+    "legend_malus": "HAZARDS"
   },
 
   "dead": {

@@ -14,7 +14,7 @@ import random
 
 import pygame
 
-from settings.balance import LEVELS, MALUSES, WEAPON_MAX_LEVEL
+from settings.balance import BONUSES, LEVELS, MALUSES, WEAPON_MAX_LEVEL
 from settings.ui import (
     C_ALLOY, C_BONUS, C_HEART, C_HEART_COLD, C_HULL, C_HULL_BG, C_HULL_LOW,
     C_MALUS, C_MISSILE, C_NEON_CYAN, C_NEON_PINK, C_NEON_RED, C_NEON_YELLOW,
@@ -117,9 +117,25 @@ class Hud:
             t = screen.FONT.render(line, True, C_TEXT)
             surf.blit(t, t.get_rect(center=(cx, y)))
             y += 28
+        if self.overlay == "pause":
+            self._draw_legend(surf, cx)
         mouse = pygame.mouse.get_pos()
         for _, b in self.overlay_buttons:
             b.draw(surf, mouse)
+
+    def _draw_legend(self, surf, cx):
+        """A reference of what every bonus and hazard does, on the pause menu:
+        two columns, bonuses (cyan) left, hazards (green) right."""
+        small, tiny = screen.FONT_SMALL, screen.FONT_TINY
+        for x0, keys, color, head in (
+                (cx - 350, list(BONUSES), C_BONUS, i18n.t("pause.legend_bonus")),
+                (cx + 20, list(MALUSES), C_MALUS, i18n.t("pause.legend_malus"))):
+            surf.blit(small.render(head, True, color), (x0, 150))
+            y = 176
+            for k in keys:
+                surf.blit(tiny.render(i18n.pickup_name(k), True, color), (x0, y))
+                surf.blit(tiny.render(i18n.pickup_info(k), True, C_TEXT_GRAY), (x0 + 145, y))
+                y += 18
 
     # --- banners ------------------------------------------------------------
 
@@ -156,7 +172,8 @@ class Hud:
         y = 34
         for eff, left in sorted(ship.effects.items()):
             col = C_MALUS if eff in MALUSES else C_BONUS
-            t = small.render(i18n.t("hud.effect_line", label=i18n.effect_label(eff), time=math.ceil(left)),
+            t = small.render(i18n.t("hud.effect_line", label=i18n.effect_label(eff),
+                                    tag=i18n.pickup_tag(eff), time=math.ceil(left)),
                              True, col)
             surf.blit(t, (MARGIN, y))
             y += 20

@@ -64,8 +64,9 @@ class Game(Combat, Controls, Hud, BugForm):
     def entry_loadout(self):
         """The loadout the ship had when it entered this sector."""
         if self.level_index == 0:
-            return base_loadout()
-        return dict(self.meta["loadouts"][self.level_index] or base_loadout())
+            return base_loadout(self.meta["ship"])
+        return dict(self.meta["loadouts"][self.level_index]
+                    or base_loadout(self.meta["ship"]))
 
     def start(self, from_boss):
         """A new attempt: from the start of the sector, or from its
@@ -73,7 +74,8 @@ class Game(Combat, Controls, Hud, BugForm):
         loadout = dict(self.checkpoint) if from_boss and self.checkpoint else self.entry_loadout()
         floor = MISSILE_START + HANGAR["missiles"]["step"] * self.meta["hangar"].get("missiles", 0)
         loadout["missiles"] = min(MISSILE_MAX, max(loadout["missiles"], floor))
-        self.ship = Ship(140, HEIGHT * 0.45, self.meta["hangar"], loadout)
+        self.ship = Ship(140, HEIGHT * 0.45, self.meta["hangar"], loadout,
+                         self.meta["ship"])
         self.script = build_script(self.level_index)
         self.script_i = 0
         self.t = 0.0                     # sector clock: drives the waves
@@ -236,7 +238,8 @@ class Game(Combat, Controls, Hud, BugForm):
         if flying:
             ax, ay = self.input_axes()
             self.ship.update(dt, ax, ay, self.drag)
-            self.drag = [0.0, 0.0]
+            # `drag` is NOT cleared here: Ship.update spends what the cap allows
+            # and leaves the rest, so a fast flick carries over and catches up.
             if self.ship.ready_to_fire(dt):
                 self.shots.extend(self.ship.volley())
             self.engine_trail()

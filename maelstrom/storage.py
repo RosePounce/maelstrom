@@ -15,7 +15,7 @@ import logging
 import os
 import sys
 
-from settings.balance import LEVELS, MISSILE_START
+from settings.balance import DEFAULT_SHIP, LEVELS, MISSILE_START, SHIPS
 from settings.ui import PROJECT_DIR, WEB
 
 
@@ -110,9 +110,11 @@ META_VERSION = 1
 META_NAME = "meta.json"
 
 
-def base_loadout():
-    """What the ship carries when it enters the first sector."""
-    return {"weapon": "pulse", "level": 1, "missiles": MISSILE_START}
+def base_loadout(ship=DEFAULT_SHIP):
+    """What the ship carries when it enters the first sector. Its starting
+    weapon comes from the chosen hull."""
+    weapon = SHIPS.get(ship, SHIPS[DEFAULT_SHIP])["weapon"]
+    return {"weapon": weapon, "level": 1, "missiles": MISSILE_START}
 
 
 def default_meta():
@@ -120,6 +122,7 @@ def default_meta():
     return {
         "alloys": 0,
         "hangar": {},
+        "ship": DEFAULT_SHIP,        # the chosen starting hull
         "unlocked": 1,               # number of sectors open
         "deaths": [0] * count,
         "best": [None] * count,      # best clear time, seconds
@@ -147,6 +150,8 @@ def read_meta():
         hangar = data.get("hangar", {})
         if isinstance(hangar, dict):
             meta["hangar"] = {str(k): max(0, int(v)) for k, v in hangar.items()}
+        ship = data.get("ship")
+        meta["ship"] = ship if ship in SHIPS else DEFAULT_SHIP
         meta["unlocked"] = max(1, min(count, int(data.get("unlocked", 1))))
         for field in ("deaths", "best", "loadouts"):
             values = data.get(field)

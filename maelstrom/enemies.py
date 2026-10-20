@@ -237,10 +237,11 @@ class Interceptor:
         self.patterns = b["patterns"]
         self.pattern_i = 0
         self.level_index = level_index
-        self.x, self.y = WIDTH + self.radius * 2.5, HEIGHT * 0.45
+        self.x, self.y = WIDTH + self.radius * 2.5, HEIGHT * 0.47
         self.target_x = WIDTH * 0.8
         self.state = "enter"
         self.state_t = 0.0
+        self.move_t = 0.0                    # drift clock, starts at 0 on arrival
         self.open = 0.0                      # petals: 0 closed .. 1 open
         self.attack_t = 1.6
         self.spin = 0.0                      # rotation of the radial rings
@@ -263,8 +264,12 @@ class Interceptor:
                 self.set_state("armored")
                 game.on_boss_ready()
         else:
-            self.y = HEIGHT * 0.47 + math.sin(self.t * 0.55) * HEIGHT * 0.26
-            self.x = self.target_x + math.sin(self.t * 0.9) * 26
+            # a clock that starts at 0 on arrival: the drift begins from the
+            # entry position (y centered, x at target_x) instead of snapping to
+            # an arbitrary sine phase -- that snap was the "glitch downward".
+            self.move_t += dt
+            self.y = HEIGHT * 0.47 + math.sin(self.move_t * 0.55) * HEIGHT * 0.26
+            self.x = self.target_x + math.sin(self.move_t * 0.9) * 26
         if self.state == "armored" and self.state_t >= BOSS_ARMORED_TIME:
             self.set_state("exposed")
             game.on_boss_exposed()

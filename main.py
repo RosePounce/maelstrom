@@ -12,7 +12,7 @@ In the browser (pygbag packages this folder as WebAssembly):
     pygbag .                 # serves on http://localhost:8000
     pygbag --build .         # writes build/web/, to publish as is
 
-Three layers, one role each:
+Three layers, one role each: et le chieta
   - main.py    this loop: home -> sectors -> sector -> ... -> home;
   - menu.py    the screens outside a sector (home, sectors, hangar, options);
   - game/      the game, whose `loop.play()` plays ONE sector (all its
@@ -68,7 +68,12 @@ async def main():
             if await menu.options() == "quit":
                 break
             continue
-        # campaign: the sector list, as long as the player comes back to it
+        # campaign: pick a ship, then the sector list (coming back to it loops)
+        chosen = await menu.ships()
+        if chosen == "quit":
+            break
+        if chosen == "menu":
+            continue
         pick = await menu.sectors()
         if pick == "quit":
             break

@@ -6,9 +6,9 @@ import random
 import pygame
 
 from settings.balance import (
-    BONUSES, HANGAR, HIT_INVULN, MALUSES, MAGNET_RADIUS, MISSILE_COOLDOWN,
-    MISSILE_MAX, SHIELD_DELAY, SHIELD_REGEN, SHIP_HULL, SHIP_SHIELD,
-    SHIP_SPEED, SPAWN_INVULN, WEAPONS,
+    BONUSES, DEFAULT_SHIP, HANGAR, HIT_INVULN, MALUSES, MAGNET_RADIUS,
+    MISSILE_COOLDOWN, MISSILE_MAX, SHIELD_DELAY, SHIELD_REGEN, SHIP_HITBOX,
+    SHIP_HULL, SHIP_SHIELD, SHIP_SPEED, SHIPS, SPAWN_INVULN, WEAPONS,
 )
 from settings.ui import (
     C_CAUSTIC, C_NEON_CYAN, C_NEON_ORANGE, C_NEON_PINK, C_NEON_RED, C_SHIELD,
@@ -18,25 +18,64 @@ from maelstrom.neon import blit_glow, neon_polygon, rotate_points
 from maelstrom.projectiles import Missile, Shot
 
 
-# The ship's outline, nose to the right (x forward, y down)
-HULL_SHAPE = [(20, 0), (-4, -6), (-14, -14), (-10, -3), (-10, 3), (-14, 14), (-4, 6)]
-COCKPIT = [(10, 0), (2, -3), (2, 3)]
+# One silhouette per starting ship, TOP-DOWN, nose to the right (x forward, y
+# down), traced from the Elite Dangerous size chart (docs/ship_list.jpg): the
+# Krait Mk II's forked twin tusks and wide swept wings with a notched tail, the
+# Alliance Chieftain's pointed nose with mid wings and rear engine nubs, the
+# Type-10 Defender's huge broad delta, the Mamba's long narrow dagger.
+SHIP_SHAPES = {
+    "krait": {
+        "hull": [(9, -1.4), (12.1, -2.8), (10, -5), (0.1, -10.3), (-12.1, -15.3),
+                 (-2.2, -15.8), (-12.3, -16.1), (-19.7, -6), (-19.5, -1.5),
+                 (-17.4, -1.3), (-17.4, 1.2), (-19.5, 1.4), (-19.7, 6),
+                 (-12, 14.6), (-2.4, 14.5), (-12, 13.8), (0.2, 9.7),
+                 (10.4, 5.4), (12, 2.1), (9.2, 0.9)],
+        "cockpit": [(8, 0), (0, -3), (0, 3)],
+    },
+    "chieftain": {
+        "hull": [(23, 0), (6, -3), (2, -12), (-4, -5), (-10, -9), (-14, -4),
+                 (-14, 4), (-10, 9), (-4, 5), (2, 12), (6, 3)],
+        "cockpit": [(12, 0), (4, -3), (4, 3)],
+    },
+    "type10": {
+        "hull": [(18, 0), (10, -4), (-6, -10), (-20, -20), (-16, -6),
+                 (-18, 0), (-16, 6), (-20, 20), (-6, 10), (10, 4)],
+        "cockpit": [(8, 0), (1, -4), (1, 4)],
+    },
+    "mamba": {
+        "hull": [(27.8, 2.8), (15.8, 2.1), (15.6, -1.7), (27.9, -4.8),
+                 (27.9, -7.7), (0.2, -9), (-16, -10), (-12, -3), (-14, 0),
+                 (-12, 3), (-16, 10), (-7.7, 9.1), (-0.3, 8.4), (28, 5.7)],
+        "cockpit": [(15, 0), (6, -2), (6, 2)],
+    },
+}
+# default silhouette: the home-screen card art and a safe fallback
+HULL_SHAPE = SHIP_SHAPES[DEFAULT_SHIP]["hull"]
+COCKPIT = SHIP_SHAPES[DEFAULT_SHIP]["cockpit"]
 
 
 class Ship:
-    def __init__(self, x, y, hangar, loadout):
+    def __init__(self, x, y, hangar, loadout, ship=DEFAULT_SHIP):
         def lv(key):
             return hangar.get(key, 0)
 
         def step(key):
             return HANGAR[key]["step"] * lv(key)
 
+        self.ship_key = ship if ship in SHIPS else DEFAULT_SHIP
+        p = SHIPS[self.ship_key]
+        shape = SHIP_SHAPES[self.ship_key]
+        self.hull_shape, self.cockpit = shape["hull"], shape["cockpit"]
+
         self.x, self.y = x, y
-        self.hull_max = SHIP_HULL + step("hull")
-        self.shield_max = SHIP_SHIELD + step("shield")
+        # the ship profile scales the base stats; the hangar then adds flat on top
+        self.hull_max = int(SHIP_HULL * p["hull"]) + step("hull")
+        self.shield_max = int(SHIP_SHIELD * p["shield"]) + step("shield")
         self.regen = SHIELD_REGEN * (1 + step("regen"))
-        self.damage_mult = 1 + step("damage")
-        self.rate_mult = 1 + step("rate")
+        self.base_speed = SHIP_SPEED * p["speed"]
+        self.hitbox = SHIP_HITBOX * p["hitbox"]
+        self.damage_mult = (1 + step("damage")) * p["damage"]
+        self.rate_mult = (1 + step("rate")) * p["rate"]
         self.magnet = MAGNET_RADIUS + step("magnet")
         self.malus_mult = max(0.2, 1 - step("dampers"))
         self.drop_mult = 1 + step("salvage")
@@ -66,7 +105,7 @@ class Ship:
         return self.effects.get(key, 0.0) > 0
 
     def speed(self):
-        s = SHIP_SPEED
+        s = self.base_speed
         if self.has("shutdown"):
             s *= MALUSES["shutdown"]["slow"]
         if self.has("jamming"):
@@ -91,12 +130,19 @@ class Ship:
         dx, dy = ax * speed * dt, ay * speed * dt
         if drag[0] or drag[1]:
             # the pointer leads, but the ship keeps its top speed (and its
-            # maluses): a flick does not teleport it
+            # maluses): a flick does not teleport it. What the cap leaves
+            # unspent STAYS in `drag`, so a fast flick is not lost -- the ship
+            # catches up over the next frames instead of dropping behind.
             cap = speed * DRAG_SPEED_CAP * dt
             mx, my = drag[0] * speed / SHIP_SPEED, drag[1] * speed / SHIP_SPEED
             dist = math.hypot(mx, my)
             if dist > cap:
-                mx, my = mx / dist * cap, my / dist * cap
+                f = cap / dist
+                mx, my = mx * f, my * f
+                drag[0] *= 1 - f           # keep the remainder for next frames
+                drag[1] *= 1 - f
+            else:
+                drag[0] = drag[1] = 0.0
             dx += mx
             dy += my
         self.x = max(PLAY_LEFT, min(PLAY_RIGHT, self.x + dx))
@@ -216,8 +262,8 @@ class Ship:
             outline = (255, 255, 255)
         elif shutdown:
             outline = (90, 110, 130)
-        neon_polygon(surf, outline, rotate_points(HULL_SHAPE, tilt, x, y))
-        pygame.draw.polygon(surf, C_NEON_PINK, rotate_points(COCKPIT, tilt, x, y))
+        neon_polygon(surf, outline, rotate_points(self.hull_shape, tilt, x, y))
+        pygame.draw.polygon(surf, C_NEON_PINK, rotate_points(self.cockpit, tilt, x, y))
         pygame.draw.circle(surf, (255, 255, 255), (int(x), int(y)), 2)   # the hitbox
 
         if self.shield > 0 and self.shield_flash > 0:

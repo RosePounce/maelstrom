@@ -16,16 +16,16 @@ import math
 import pygame
 
 from settings import GAME_NAME, VERSION_LABEL
-from settings.balance import HANGAR, LEVELS, hangar_cost
+from settings.balance import HANGAR, LEVELS, SHIP_ORDER, SHIPS, hangar_cost
 from settings.ui import (
-    C_ALLOY, C_HEART, C_NEON_CYAN, C_NEON_PINK, C_PANEL,
-    C_PANEL_BORDER, C_TEXT, C_TEXT_GRAY, C_THARG, C_THARG_DARK, FPS, HEIGHT,
-    LEVEL_LOOKS, WEB, WIDTH,
+    C_ALLOY, C_HEART, C_HULL, C_NEON_CYAN, C_NEON_ORANGE, C_NEON_PINK,
+    C_NEON_YELLOW, C_PANEL, C_PANEL_BORDER, C_SHIELD, C_TEXT, C_TEXT_GRAY,
+    C_THARG, C_THARG_DARK, FPS, HEIGHT, LEVEL_LOOKS, WEB, WIDTH,
 )
 from maelstrom import i18n, screen
 from maelstrom.backdrop import Backdrop
-from maelstrom.neon import blit_glow, draw_sun, neon_polygon
-from maelstrom.player import COCKPIT, HULL_SHAPE
+from maelstrom.neon import blit_glow, draw_bar, draw_sun, neon_polygon
+from maelstrom.player import COCKPIT, HULL_SHAPE, SHIP_SHAPES
 from maelstrom.screen import make_screen, toggle_fullscreen
 from maelstrom.storage import read_meta, write_meta
 from maelstrom.widgets import Button, wrap
@@ -313,6 +313,113 @@ async def home():
         mouse = pygame.mouse.get_pos()
         for _, c in cards + buttons:
             c.draw(surf, mouse)
+        _foot(surf)
+        _finish(surf)
+        await asyncio.sleep(0)
+
+
+# ----------------------------------------------------------------------
+#  Ship selection
+# ----------------------------------------------------------------------
+
+SHIP_STATS = ("hull", "shield", "speed", "damage")
+_STAT_MAX = {"hull": 1.8, "shield": 1.3, "speed": 1.3, "damage": 1.35}
+_STAT_COL = {"hull": C_HULL, "shield": C_SHIELD, "speed": C_NEON_YELLOW,
+             "damage": C_NEON_ORANGE}
+
+
+def _draw_ship_shape(surf, key, cx, cy, scale):
+    """The ship silhouette (from player.SHIP_SHAPES), nose to the right."""
+    shape = SHIP_SHAPES[key]
+    hull = [(cx + px * scale, cy + py * scale) for px, py in shape["hull"]]
+    blit_glow(surf, cx - 15 * scale, cy, int(9 * scale), C_NEON_PINK, 0.5)
+    neon_polygon(surf, C_NEON_CYAN, hull)
+    cock = [(cx + px * scale, cy + py * scale) for px, py in shape["cockpit"]]
+    pygame.draw.polygon(surf, C_NEON_PINK, cock)
+
+
+def _ship_panel(surf, rect, key, selected, mouse):
+    hovered = rect.collidepoint(mouse)
+    r = rect.move(0, -6 if (hovered or selected) else 0)
+    panel = pygame.Surface(r.size, pygame.SRCALPHA)
+    panel.fill((*C_PANEL, 230))
+    surf.blit(panel, r.topleft)
+    accent = C_NEON_CYAN if selected else (C_NEON_PINK if hovered else C_PANEL_BORDER)
+    pygame.draw.rect(surf, accent, r, 2 if (selected or hovered) else 1, border_radius=8)
+    cx = r.centerx
+    _draw_ship_shape(surf, key, cx, r.y + 44, 2.4)
+    name = i18n.ship_name(key)
+    for font in (screen.FONT_TITLE, screen.FONT, screen.FONT_SMALL):
+        if font.size(name)[0] <= r.w - 16:
+            break
+    t = font.render(name, True, C_NEON_CYAN if selected else C_TEXT)
+    surf.blit(t, t.get_rect(midtop=(cx, r.y + 76)))
+    by = r.y + 108
+    p = SHIPS[key]
+    for stat in SHIP_STATS:
+        lbl = screen.FONT_TINY.render(i18n.t("ships.stat_" + stat), True, C_TEXT_GRAY)
+        surf.blit(lbl, (r.x + 12, by - 1))
+        bx = r.x + 76
+        draw_bar(surf, bx, by + 1, r.right - 12 - bx, 7,
+                 min(1.0, p[stat] / _STAT_MAX[stat]), _STAT_COL[stat], (30, 20, 42))
+        by += 18
+    dy = by + 8
+    for line in wrap(i18n.ship_desc(key), screen.FONT_SMALL, r.w - 20):
+        img = screen.FONT_SMALL.render(line, True, C_TEXT_GRAY)
+        surf.blit(img, img.get_rect(midtop=(cx, dy)))
+        dy += 19
+
+
+async def ships():
+    """Pick the starting hull. Returns "start", "menu" or "quit"; the choice is
+    written to the meta on confirm."""
+    surf = screen.SCREEN = make_screen()
+    meta = read_meta()
+    selected = meta["ship"] if meta["ship"] in SHIP_ORDER else SHIP_ORDER[0]
+    w, h = 198, 334
+    rects = [pygame.Rect(rr) for rr in _row_rects(len(SHIP_ORDER), w, h, 92, 14)]
+    start = Button(WIDTH // 2 - 170, HEIGHT - 52, 220, 40, "", C_NEON_CYAN)
+    back = Button(WIDTH // 2 + 70, HEIGHT - 52, 100, 40, "")
+
+    def confirm():
+        meta["ship"] = selected
+        write_meta(meta)
+
+    while True:
+        dt = _tick()
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "quit"
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_F11:
+                    toggle_fullscreen()
+                elif e.key == pygame.K_ESCAPE:
+                    return "menu"
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    confirm()
+                    return "start"
+                elif pygame.K_1 <= e.key <= pygame.K_9:
+                    i = e.key - pygame.K_1
+                    if i < len(SHIP_ORDER):
+                        selected = SHIP_ORDER[i]
+            if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, rr in enumerate(rects):
+                    if rr.collidepoint(e.pos):
+                        selected = SHIP_ORDER[i]
+                if start.click(e.pos):
+                    confirm()
+                    return "start"
+                if back.click(e.pos):
+                    return "menu"
+        _background(surf, "pleiades", dt, 170)
+        _title(surf, i18n.t("ships.title"), i18n.t("ships.subtitle"), 40)
+        mouse = pygame.mouse.get_pos()
+        for i, rr in enumerate(rects):
+            _ship_panel(surf, rr, SHIP_ORDER[i], SHIP_ORDER[i] == selected, mouse)
+        start.text = i18n.t("ships.start")
+        back.text = i18n.t("menu.btn_back")
+        start.draw(surf, mouse)
+        back.draw(surf, mouse)
         _foot(surf)
         _finish(surf)
         await asyncio.sleep(0)

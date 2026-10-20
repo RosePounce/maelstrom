@@ -24,6 +24,24 @@ MAGNET_RADIUS = 70             # bonuses within it drift to the ship
 MAGNET_PULL = 360
 
 
+# Starting ships (Elite Dangerous hulls). Each is a multiplier on the base
+# stats above, a starting weapon, and -- for the big slow hulls -- a wider
+# hitbox (harder to dodge). The silhouettes are drawn in `player.py`
+# (`SHIP_SHAPES`), their names/descriptions in the locales.
+SHIPS = {
+    "krait":     {"hull": 1.0,  "shield": 1.0,  "speed": 1.05, "damage": 1.10,
+                  "rate": 1.05, "hitbox": 1.0,  "weapon": "pulse"},
+    "chieftain": {"hull": 1.35, "shield": 0.85, "speed": 1.15, "damage": 0.95,
+                  "rate": 1.0,  "hitbox": 1.0,  "weapon": "pulse"},
+    "type10":    {"hull": 1.8,  "shield": 1.30, "speed": 0.78, "damage": 1.20,
+                  "rate": 0.95, "hitbox": 1.45, "weapon": "rail"},
+    "mamba":     {"hull": 0.7,  "shield": 0.70, "speed": 1.30, "damage": 1.35,
+                  "rate": 1.10, "hitbox": 0.85, "weapon": "rail"},
+}
+SHIP_ORDER = ("krait", "chieftain", "type10", "mamba")
+DEFAULT_SHIP = "krait"
+
+
 # ----------------------------------------------------------------------
 #  Primary weapons (automatic fire)
 # ----------------------------------------------------------------------

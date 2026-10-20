@@ -20,6 +20,20 @@
     "language": "Langue : {name}"
   },
 
+  "ships": {
+    "title": "VAISSEAU",
+    "subtitle": "Choisir le chasseur de depart",
+    "start": "Lancer la campagne   (Entree)",
+    "stat_hull": "Coque",
+    "stat_shield": "Bouclier",
+    "stat_speed": "Vitesse",
+    "stat_damage": "Degats",
+    "krait": {"name": "Krait Mk II", "desc": "Polyvalent : bonne vitesse, gros emport anti-xeno. La reference de l'interception."},
+    "chieftain": {"name": "Alliance Chieftain", "desc": "Agile et coque solide. Ideal pour apprendre a mater les Intercepteurs."},
+    "type10": {"name": "Type-10 Defender", "desc": "Mastodonte : coque immense et armement lourd, mais lent et peu agile."},
+    "mamba": {"name": "Mamba", "desc": "Glass cannon : tres rapide et gros degats, mais fragile."}
+  },
+
   "sectors": {
     "title": "SECTEURS",
     "subtitle": "Choisir le secteur a liberer",
@@ -76,16 +90,16 @@
   },
 
   "pickups": {
-    "weapon": { "name": "Module d'arme" },
-    "shield": { "name": "Banque de cellules", "letter": "S" },
-    "repair": { "name": "Limpet de reparation", "letter": "+" },
-    "missiles": { "name": "Missiles AX", "letter": "AX" },
-    "overcharge": { "name": "Surcharge", "letter": ">>" },
-    "alloy": { "name": "Meta-alliage", "letter": "" },
-    "caustic": { "name": "Caustique !", "letter": "C" },
-    "shutdown": { "name": "Onde d'arret !", "letter": "!" },
-    "overheat": { "name": "Surchauffe !", "letter": "~" },
-    "jamming": { "name": "Brouillage !", "letter": "#" },
+    "weapon": { "name": "Module d'arme", "info": "monte ou change l'arme" },
+    "shield": { "name": "Banque de cellules", "letter": "S", "info": "bouclier plein" },
+    "repair": { "name": "Limpet de reparation", "letter": "+", "info": "repare la coque + caustique" },
+    "missiles": { "name": "Missiles AX", "letter": "AX", "info": "recharge les missiles AX" },
+    "overcharge": { "name": "Surcharge", "letter": ">>", "info": "cadence de tir x1,7", "tag": "x1,7" },
+    "alloy": { "name": "Meta-alliage", "letter": "", "info": "meta-alliage en prime" },
+    "caustic": { "name": "Caustique !", "letter": "C", "info": "la coque fond, bouclier ou pas", "tag": "-coque" },
+    "shutdown": { "name": "Onde d'arret !", "letter": "!", "info": "ni tir ni recharge, vaisseau lent", "tag": "arme KO" },
+    "overheat": { "name": "Surchauffe !", "letter": "~", "info": "cadence de tir divisee par 2", "tag": "/2" },
+    "jamming": { "name": "Brouillage !", "letter": "#", "info": "vaisseau lent, image dechiree", "tag": "lent" },
     "mystery": { "letter": "?" }
   },
 
@@ -110,7 +124,7 @@
     "missiles": "AX x{count}",
     "alloys": "Meta-alliage +{alloys}",
     "sector": "{n}. {name}",
-    "effect_line": "{label}  {time:.0f} s",
+    "effect_line": "{label}  {tag}   {time:.0f} s",
     "btn_pause": "Pause",
     "btn_ax": "AX"
   },
@@ -130,7 +144,9 @@
     "btn_resume": "Reprendre",
     "btn_restart": "Recommencer le secteur",
     "btn_menu": "Retour au menu",
-    "btn_report_bug": "Signaler un bug"
+    "btn_report_bug": "Signaler un bug",
+    "legend_bonus": "BONUS",
+    "legend_malus": "MALUS"
   },
 
   "dead": {

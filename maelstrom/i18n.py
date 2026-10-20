@@ -278,6 +278,14 @@ def pickup_letter(key):
     return _text("pickups.%s.letter" % key, "")
 
 
+def pickup_info(key):
+    return _text("pickups.%s.info" % key, "")
+
+
+def pickup_tag(key):
+    return _text("pickups.%s.tag" % key, "")
+
+
 def effect_label(key):
     return _text("effects.%s" % key, key)
 
@@ -288,3 +296,11 @@ def hangar_name(key):
 
 def hangar_desc(key):
     return _text("hangar.items.%s.desc" % key, "")
+
+
+def ship_name(key):
+    return _text("ships.%s.name" % key, key)
+
+
+def ship_desc(key):
+    return _text("ships.%s.desc" % key, "")

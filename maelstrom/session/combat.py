@@ -7,7 +7,7 @@ from settings.balance import (
     BONUSES, BOSS_ALLOY, BOSS_ALLOY_PER_HEART, BOSS_CONTACT, BOSS_DEATH_TIME,
     BOSS_SHUTDOWN, CAUSTIC_CLOUD, CONTACT_SELF_DAMAGE, ENEMY_SHOT_DAMAGE,
     LEVEL_DAMAGE_SCALE, MALUSES, MISSILE_MAX, MYSTERY_ALLOY_MULT,
-    MYSTERY_BONUS, PICKUP_RADIUS, SHIP_HITBOX, WEAPON_MAX_LEVEL,
+    MYSTERY_BONUS, PICKUP_RADIUS, WEAPON_MAX_LEVEL,
     WEAPON_MAXED_ALLOY,
 )
 from settings.ui import (
@@ -82,18 +82,18 @@ class Combat:
         ship = self.ship
         if self.phase != "boss_dying":
             for s in self.enemy_shots:
-                if _close(s.x, s.y, ship.x, ship.y, SHIP_HITBOX + s.radius):
+                if _close(s.x, s.y, ship.x, ship.y, ship.hitbox + s.radius):
                     if ship.hit(s.damage):
                         s.dead = True
                         self.on_ship_hit()
             for e in self.enemies:
-                if e.hp > 0 and _close(e.x, e.y, ship.x, ship.y, SHIP_HITBOX + e.radius * 0.8):
+                if e.hp > 0 and _close(e.x, e.y, ship.x, ship.y, ship.hitbox + e.radius * 0.8):
                     if ship.hit(e.contact):
                         self.on_ship_hit()
                         e.hp -= CONTACT_SELF_DAMAGE
                     if e.kind == "mine":
                         e.hp = 0
-            if boss and boss.hit_test(ship.x, ship.y, SHIP_HITBOX):
+            if boss and boss.hit_test(ship.x, ship.y, ship.hitbox):
                 if ship.hit(BOSS_CONTACT):
                     self.on_ship_hit()
             for c in self.clouds:

@@ -197,6 +197,7 @@ BUG_BTN_W, BUG_BTN_H = 180, 36
 BUG_NOTICE_TIME = 5.0          # seconds the "report saved" notice stays
 
 # Drag control (mouse held or finger): the ship follows the pointer motion,
-# times this gain, capped to this share of its speed
+# times this gain, capped per frame to this share of its speed. The cap only
+# smooths: what it leaves unspent carries over, so a fast flick is not lost.
 DRAG_GAIN = 1.25
-DRAG_SPEED_CAP = 1.8
+DRAG_SPEED_CAP = 3.5
