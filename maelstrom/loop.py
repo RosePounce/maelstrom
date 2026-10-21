@@ -12,7 +12,7 @@ import asyncio
 import pygame
 
 from settings.ui import FPS
-from maelstrom import i18n, screen
+from maelstrom import audio, i18n, screen
 from maelstrom.screen import make_screen, toggle_fullscreen
 from maelstrom.session.game import Game
 
@@ -63,6 +63,7 @@ async def play(level_index):
         if not game.showing_bug_form:        # the form freezes everything
             game.update(dt)
         game.tick_notice(dt)                 # also runs under the pause menu
+        audio.music(game.music_track())
         game.draw()
         pygame.display.flip()
         # pygbag: yield to the browser on every frame, otherwise the tab

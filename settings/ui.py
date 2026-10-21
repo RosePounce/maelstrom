@@ -169,6 +169,40 @@ FONT_PATH = os.path.join(ASSET_DIR, "DejaVuSansMono.ttf")
 
 
 # ----------------------------------------------------------------------
+#  Music
+# ----------------------------------------------------------------------
+
+# One track per key: file name in MUSIC_DIR WITHOUT extension (".ogg" is
+# tried first, the only format sure to play in the browser, then ".mp3"),
+# and whether it loops. A missing file is silence, not an error. The prompts
+# that made them, and the phase each one goes with: docs/musique.md.
+# A sector plays the track named after its key (balance.LEVELS), an
+# Interceptor the one named after its key (balance.BOSSES).
+MUSIC_DIR = os.path.join(ASSET_DIR, "music")
+MUSIC = {
+    "title":     ("title", True),
+    "credits":   ("credits", False),
+    "pause":     ("pause", True),
+    "hangar":    ("hangar", True),
+    "merope":    ("sector_1", True),            # not made yet
+    "oracle":    ("sector_2", True),            # not made yet
+    "pleiades":  ("sector_3", True),            # not made yet
+    "maelstrom": ("sector_4", True),
+    "warning":   ("warning", False),            # not made yet
+    "cyclops":   ("boss_cyclops_basilisk", True),
+    "basilisk":  ("boss_cyclops_basilisk", True),
+    "medusa":    ("boss_medusa", True),
+    "hydra":     ("boss_hydra", True),
+    "dead":      ("dead", False),               # not made yet
+    "cleared":   ("cleared", False),            # not made yet
+}
+MUSIC_VOLUMES = (0.0, 0.25, 0.5, 0.75, 1.0)   # the steps of the options button
+MUSIC_VOLUME = 0.5             # until the player picks one
+MUSIC_FADE_IN = 400            # ms, when a looping track starts
+MUSIC_FADE_OUT = 1500          # ms, under the Interceptor's explosions
+
+
+# ----------------------------------------------------------------------
 #  Fonts (sizes in logical pixels)
 # ----------------------------------------------------------------------
 
