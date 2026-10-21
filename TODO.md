@@ -19,6 +19,11 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     pygbag (audio navigateur, prechargement, mixer en async, deblocage au
     premier clic) ; reglage volume / coupure dans les Options (memorise comme la
     langue) ; mise en sourdine quand l'onglet ou la fenetre perd le focus.
+  - *Retour de jeu* (rapport `20261021-124702`, fait sur la branche
+    `feature/music`) : « il faut une continuite entre le son du niveau et celui
+    du boss ». Pas de coupure seche a l'arrivee de l'Intercepteur : fondu
+    enchaine, ou meme tempo / tonalite pour que la piste du boss prolonge celle
+    du secteur.
 
 - [ ] (P2) **Succes / achievements par secteur** — des defis debloquables,
   plusieurs par secteur. Exemples de criteres : liberer sans mourir, sans etre
@@ -39,7 +44,7 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     renumerotees). Maelstrom ne l'est **pas** aujourd'hui : les vagues sont deja
     semees par secteur (bon depart), mais les butins, les particules et la gigue
     des ennemis passent par le `random` global. Un vrai lockstep demande de
-    purger ce RNG (RNG seme partage), de fixer le pas de simulation et de
+      purger ce RNG (RNG seme partage), de fixer le pas de simulation et de
     bannir le non-deterministe. Alternative plus simple mais qui s'ecarte de
     purr-tage : un hote autoritaire qui diffuse l'etat.
   - *A definir* : co-op vs versus ; ecran de lobby / decouverte LAN dans
@@ -82,6 +87,11 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
   pas seulement en partie. Aujourd'hui F8 n'ouvre le formulaire que dans un secteur
   (`loop.play`) ; le filet anti-plantage couvre deja les menus, mais pas le
   signalement manuel.
+  - *Cas vecu* (rapport `saves/bugs/20261021-163755`, « libelle qui depasse des
+    bouton ») : le defaut etait sur l'ecran du choix du vaisseau, mais le rapport
+    n'a pu etre fait qu'en partie. Il est arrive avec la capture et l'etat du
+    secteur 1, sans rapport avec le bug ; il a fallu le retrouver en rendant tous
+    les ecrans un par un.
   - *A definir* : sortir le formulaire de `session/bug_form.py` pour qu'un ecran
     de menu (sans instance `Game`) puisse l'ouvrir ; variante de
     `bugreport.write_report` sans partie (ecran + description + quel ecran + meta,
@@ -109,9 +119,66 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     (`bugreport.git_commit` renvoie « unknown » hors depot : l'injecter au
     build) ; lien avec **F8 partout** ci-dessus.
 
+- [ ] (P1) **Boss : nouveaux motifs et petales a cibler** (retour de jeu,
+  rapports `20261021-163941` « changer le paterne des boss » et
+  `20261021-164230` « utiliser le paterne des thargo d'elite avec les petals a
+  cibler ») — aujourd'hui les quatre Intercepteurs se jouent pareil : une
+  alternance minutee blinde / expose (`BOSS_ARMORED_TIME`,
+  `BOSS_EXPOSED_TIME`) et une rotation de tirs (`aimed`, `radial`, `swarm`).
+  - *Petales a cibler* (comme les Thargoides d'elite d'Elite Dangerous) : les
+    petales deviennent des cibles a detruire pour ouvrir le coeur, au lieu d'un
+    minuteur ; un coeur detruit referme la rosace avec de nouveaux petales.
+  - *Motifs* : un jeu de motifs propre a chaque Intercepteur (Cyclops, Basilisk,
+    Medusa, Hydra), qui change d'un coeur a l'autre.
+  - *A definir* : petales avec leurs PV dans `Interceptor` (`enemies.py`) et
+    collisions par petale dans `combat.py` ; nombre de petales et PV dans
+    `BOSSES` (`balance.py`) ; lecture claire a l'ecran (petale touche, petale
+    detruit) ; lien avec le **Titan** et ses pods rouges, qui suivent la meme
+    logique de points faibles.
+
+- [ ] (P2) **Campagne etendue sur une carte de la Voie lactee** (retour de jeu,
+  rapport `20261021-164337`) — « plus de niveaux : utiliser la carte de la voie
+  lactee decoupee par secteur x N niveaux pour repousser l'invasion des xeno ».
+  Aujourd'hui, 4 secteurs en ligne (`LEVELS`).
+  - *A definir* : ecran de carte galactique a la place de la liste des secteurs
+    (`menu.sectors()`) ; regions (Pleiades, Merope, Oracle...) contenant chacune
+    N niveaux et un boss ; progression de l'invasion sur la carte (zones
+    reprises / perdues) ; stockage dans la meta (`unlocked`, `best`, `deaths`
+    passent par region, montee de `META_VERSION`) ; generation des vagues pour
+    beaucoup plus de niveaux sans tout ecrire a la main.
+
+- [ ] (P2) **Loots et ameliorations** (retour de jeu, rapport `20261021-164639`) —
+  « avoir des loots et des ameliorations ». Constat dans `saves/meta.json` : en
+  une session, le hangar est presque au maximum (coque, cadence, degats,
+  bouclier a 5), il reste 896 de meta-alliage sans rien a acheter, et une seule
+  mort sur la campagne. La progression s'epuise trop vite.
+  - *A definir* : butins varies laches par les ennemis et les boss (pieces,
+    modules) en plus du meta-alliage ; nouvelles ameliorations au hangar, ou des
+    paliers au-dela des `max` actuels de `HANGAR` ; courbe de couts
+    (`HANGAR_GROWTH`) ; lien avec le **Mode de difficulte**, qui donnerait une
+    raison de rejouer avec un hangar plein.
+
+- [ ] (P3) **Sites Guardians : technologies et evolution du vaisseau** (retour de
+  jeu, rapport `20261021-164701`) — « ajouter des donjons guardians pour recup
+  des techno et faire evoluer le ship dans le hangar ». Des niveaux a part,
+  dans les ruines Guardians, ou l'on recupere des technologies.
+  - *A definir* : forme du niveau (exploration plutot que defilement, gardiens
+    sentinelles) ; technologies obtenues (nouvelles armes, modules) qui font
+    evoluer le vaisseau au hangar au-dela des ameliorations chiffrees ; place sur
+    la **carte de la Voie lactee** ; suite naturelle de **Loots et
+    ameliorations**.
+
 ## En cours
 
 ## Fait
+
+- [x] **Ecran du choix du vaisseau : mise en page** (retour de jeu, rapport
+  `20261021-163755`) — le libelle « Lancer la campagne (Entree) » debordait de son
+  bouton (298 px pour 220) ; le sous-titre passait sous les cartes ; la silhouette
+  du Type-10 sortait de sa carte et du nom ; « Mamba » etait ecrit plus gros que
+  les autres noms ; les boutons recouvraient la ligne de version. Cartes
+  descendues sous le sous-titre, silhouettes mises a l'echelle de leur cadre
+  (`_draw_ship_shape`), une seule taille de nom, boutons elargis et remontes.
 
 - [x] (P1) **Choix du vaisseau de depart** — ecran avant la campagne (`menu.ships()`),
   4 chasseurs aux profils distincts : **Krait Mk II** (polyvalent), **Alliance
