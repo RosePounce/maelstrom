@@ -114,6 +114,40 @@ async def main():
             break
 
 
+def verification():
+    """`--verification`: the packaged game checks itself, then quits.
+
+    Run by the release pipeline (.github/workflows/packages.yml) on the
+    PyInstaller package and on the AppImage, under SDL's dummy drivers: the
+    bundled font and languages must load, and every sector must start and
+    play a few seconds without raising. Returns the exit code."""
+    from maelstrom import i18n, screen
+    from maelstrom.session.game import Game
+    from settings.balance import LEVELS
+
+    menu.init()
+    for code in ("fr", "en"):
+        if not i18n.catalog(code):
+            print(f"verification: language {code} missing", file=sys.stderr)
+            return 1
+    if screen.FONT is None:
+        print("verification: font not loaded", file=sys.stderr)
+        return 1
+    for index in range(len(LEVELS)):
+        game = Game(index)
+        for _ in range(180):
+            game.update(1 / 60)
+            game.draw()
+        pygame.display.flip()
+    print(f"verification: {len(LEVELS)} sectors OK")
+    return 0
+
+
+if not WEB and "--verification" in sys.argv[1:]:
+    code = verification()
+    pygame.quit()
+    sys.exit(code)
+
 # pygbag looks for an `asyncio.run(main())` at module level: it is its entry
 # point. In the browser the call never returns.
 #

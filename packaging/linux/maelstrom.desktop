@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Maelstrom
+GenericName=Shoot'em up
+GenericName[fr]=Shoot'em up
+Comment=A neon side-scrolling shooter against the Thargoid invasion
+Comment[fr]=Un shoot'em up néon contre l'invasion thargoïde
+Exec=Maelstrom
+Icon=maelstrom
+Categories=Game;ArcadeGame;
+Terminal=false
+StartupNotify=true

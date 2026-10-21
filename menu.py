@@ -344,9 +344,16 @@ _STAT_COL = {"hull": C_HULL, "shield": C_SHIELD, "speed": C_NEON_YELLOW,
              "damage": C_NEON_ORANGE}
 
 
-def _draw_ship_shape(surf, key, cx, cy, scale):
-    """The ship silhouette (from player.SHIP_SHAPES), nose to the right."""
+def _draw_ship_shape(surf, key, box, max_scale=2.4):
+    """The ship silhouette (from player.SHIP_SHAPES), nose to the right,
+    scaled down to fit `box` and centred in it: the shapes neither share a
+    size nor sit on their origin."""
     shape = SHIP_SHAPES[key]
+    xs = [px for px, _py in shape["hull"]]
+    ys = [py for _px, py in shape["hull"]]
+    scale = min(max_scale, box.w / (max(xs) - min(xs)), box.h / (max(ys) - min(ys)))
+    cx = box.centerx - (min(xs) + max(xs)) / 2 * scale
+    cy = box.centery - (min(ys) + max(ys)) / 2 * scale
     hull = [(cx + px * scale, cy + py * scale) for px, py in shape["hull"]]
     blit_glow(surf, cx - 15 * scale, cy, int(9 * scale), C_NEON_PINK, 0.5)
     neon_polygon(surf, C_NEON_CYAN, hull)
@@ -363,9 +370,10 @@ def _ship_panel(surf, rect, key, selected, mouse):
     accent = C_NEON_CYAN if selected else (C_NEON_PINK if hovered else C_PANEL_BORDER)
     pygame.draw.rect(surf, accent, r, 2 if (selected or hovered) else 1, border_radius=8)
     cx = r.centerx
-    _draw_ship_shape(surf, key, cx, r.y + 44, 2.4)
+    _draw_ship_shape(surf, key, pygame.Rect(r.x + 14, r.y + 12, r.w - 28, 56))
     name = i18n.ship_name(key)
-    for font in (screen.FONT_TITLE, screen.FONT, screen.FONT_SMALL):
+    # the same size for every name, smaller only when one does not fit
+    for font in (screen.FONT, screen.FONT_SMALL):
         if font.size(name)[0] <= r.w - 16:
             break
     t = font.render(name, True, C_NEON_CYAN if selected else C_TEXT)
@@ -393,9 +401,12 @@ async def ships():
     meta = read_meta()
     selected = meta["ship"] if meta["ship"] in SHIP_ORDER else SHIP_ORDER[0]
     w, h = 198, 334
-    rects = [pygame.Rect(rr) for rr in _row_rects(len(SHIP_ORDER), w, h, 92, 14)]
-    start = Button(WIDTH // 2 - 170, HEIGHT - 52, 220, 40, "", C_NEON_CYAN)
-    back = Button(WIDTH // 2 + 70, HEIGHT - 52, 100, 40, "")
+    # below the subtitle, and the buttons above the version line
+    rects = [pygame.Rect(rr) for rr in _row_rects(len(SHIP_ORDER), w, h, 108, 14)]
+    start_w, back_w, gap = 320, 110, 16
+    x0 = WIDTH // 2 - (start_w + gap + back_w) // 2
+    start = Button(x0, HEIGHT - 88, start_w, 40, "", C_NEON_CYAN)
+    back = Button(x0 + start_w + gap, HEIGHT - 88, back_w, 40, "")
 
     def confirm():
         meta["ship"] = selected
