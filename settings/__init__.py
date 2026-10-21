@@ -15,5 +15,5 @@ None of this imports the game code. Values that are CREATED at runtime
 """
 
 GAME_NAME = "Maelstrom"          # proper noun: the same in every language
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 VERSION_LABEL = f"{GAME_NAME}   -   beta {VERSION}"
