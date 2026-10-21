@@ -89,6 +89,26 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     d'ecran de `menu.py` gere F8 et fige l'ecran pendant la saisie ; **bureau
     seulement** (comme l'existant).
 
+- [ ] (P1) **Remontee des bugs vers un relais Cloudflare** — sur le modele de
+  purr-tage (`relay/` et `purrtage/bugsend.py`), pour les versions installees
+  (AppImage, installeur Windows) produites par `.github/workflows/packages.yml` :
+  aujourd'hui un rapport F8 ou un plantage reste dans le dossier du joueur
+  (`saves/bugs/`, ou `~/.local/share/maelstrom/bugs/` / `%APPDATA%\Maelstrom\bugs\`
+  une fois installe) et ne nous parvient jamais.
+  - *Principe* : le jeu ne connait qu'une adresse, celle d'un Cloudflare Worker
+    (offre gratuite, stockage Workers KV) qui verifie le rapport, en garde une
+    copie et le transmet aux services branches (GitHub Issues, Discord,
+    e-mail) ; aucune cle de service dans le jeu, dont le code est public.
+  - *Cote jeu* : envoi HTTPS en tache de fond apres l'ecriture sur disque
+    (`bugreport`), boite d'envoi `outbox/` rejouee au lancement suivant (rien
+    perdu hors connexion), journal `send.log` ; certificats `certifi` a
+    embarquer dans `packaging/maelstrom.spec` ; notification du resultat dans le
+    formulaire ; consentement du joueur avant envoi ; **bureau seulement**.
+  - *A definir* : reprendre le Worker de purr-tage tel quel ou un deploiement
+    dedie ; URL du relais dans `settings/` ; commit de la version installee
+    (`bugreport.git_commit` renvoie « unknown » hors depot : l'injecter au
+    build) ; lien avec **F8 partout** ci-dessus.
+
 ## En cours
 
 ## Fait
