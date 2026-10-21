@@ -30,23 +30,6 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     les cartes de secteur, bilan a la victoire, ou un ecran dedie) ; noms et
     descriptions dans les locales ; eventuelle petite recompense en meta-alliage.
 
-- [ ] (P3) **Multijoueur a 2 en LAN** (le plus gros chantier) — sur le modele de
-  purr-tage. A priori **cooperatif** : deux chasseurs contre les Thargoides
-  (versus a decider). Reutiliser le transport de purr-tage (`net.py` : TCP +
-  annonce LAN en UDP) et son `lockstep.py`.
-  - *Gros point dur* : purr-tage est **deterministe** (lockstep, aucun etat ne
-    traverse le reseau, pas de RNG global, pas de `hypot`/trigo, entites
-    renumerotees). Maelstrom ne l'est **pas** aujourd'hui : les vagues sont deja
-    semees par secteur (bon depart), mais les butins, les particules et la gigue
-    des ennemis passent par le `random` global. Un vrai lockstep demande de
-    purger ce RNG (RNG seme partage), de fixer le pas de simulation et de
-    bannir le non-deterministe. Alternative plus simple mais qui s'ecarte de
-    purr-tage : un hote autoritaire qui diffuse l'etat.
-  - *A definir* : co-op vs versus ; ecran de lobby / decouverte LAN dans
-    `menu.py` ; entrees serialisees en ordres ; **desktop seulement** (le
-    reseau LAN n'existe pas dans le navigateur pygbag) ; comment la meta, le
-    hangar et le choix du vaisseau se partagent a deux.
-
 - [ ] (P2) **Mode de difficulte** — quatre crans, nommes comme une echelle de
   menace thargoide : **Scout** (le plus facile) -> **Interceptor** -> **Hunter**
   -> **Titan** (le plus dur). Chaque cran ajuste des multiplicateurs : PV et
@@ -90,6 +73,27 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     seulement** (comme l'existant).
 
 ## En cours
+
+- [ ] (P3) **Multijoueur a 2 en LAN** — En branche `feature/coop-lan`.
+  **Cooperatif**, desktop seulement (carte « Coop LAN » de l'accueil, absente
+  sous pygbag). Choix faits :
+  - **Hote autoritaire** plutot que lockstep : l'hote simule comme en solo avec
+    un 2e vaisseau pilote par le reseau, et envoie un instantane JSON par image
+    (`session/coop.py`) ; le client envoie ses entrees, dessine et rejoue les
+    effets (`Combat.emit`). Aucune purge du RNG necessaire. Transport repris de
+    purr-tage (`maelstrom/net.py` : TCP 50517 + annonce UDP 50518).
+  - **Salon** `menu.lobby()` : heberger, liste des parties annoncees, saisie
+    d'IP ; poignee de main `hello` / `welcome` avec numero de protocole.
+  - **Regles** : vaisseau abattu de retour apres `COOP_RESPAWN` s, essai perdu
+    quand les deux sont abattus, Thargoides visant le plus proche, pause qui ne
+    fige rien, seul l'hote decide apres une mort ou une victoire.
+  - **Meta** : chacun son vaisseau, son hangar, ses equipements ; meta-alliage
+    de l'equipe verse aux deux ; records et deblocages solo intouches ; l'hote
+    choisit parmi ses secteurs liberes.
+  - *Reste a faire* : traduction anglaise des nouvelles cles (`menu.card_coop*`,
+    `lan.*`, `coop.*`, pour l'instant en repli sur le francais) ; essai reel sur
+    deux machines (pare-feu, Windows <-> Linux) ; eventuellement interpolation
+    cote client si le reseau saccade.
 
 ## Fait
 

@@ -1,7 +1,8 @@
 """The Thargoids: the common ships, and the Interceptors (the bosses).
 
 An enemy never imports the session: it receives `game` in argument and asks
-it to fire (`game.enemy_fire`) or to spawn (`game.spawn_enemy`).
+it to fire (`game.enemy_fire`), to spawn (`game.spawn_enemy`) or which ship
+to go after (`game.target`, the nearest one in a co-op game).
 """
 
 import math
@@ -61,6 +62,16 @@ def petal_points(cx, cy, ang, inner, outer, width, swirl, tip):
     return [base] + left + [tip_pt] + right[::-1]
 
 
+def asteroid_shape(radius, seed):
+    """The outline of an asteroid: the same seed, the same rock (the co-op
+    client rebuilds it from the seed the host sends)."""
+    rng = random.Random(seed)
+    n = 9
+    return [(math.cos(i * math.tau / n) * radius * rng.uniform(0.75, 1.1),
+             math.sin(i * math.tau / n) * radius * rng.uniform(0.75, 1.1))
+            for i in range(n)]
+
+
 class Enemy:
     """A Thargoid ship (or a mine, or an asteroid). Its behaviour is the
     method `_<kind>`, called on every frame."""
@@ -96,12 +107,10 @@ class Enemy:
         self.angle = 0.0
         self.spin = random.uniform(-1.2, 1.2)
         self.gone = False            # left the screen: removed without a kill
+        self.uid = 0                 # given by the game: names it on the network
+        self.seed = int(x * 7 + y * 13)
         if kind == "asteroid":
-            rng = random.Random(int(x * 7 + y * 13))
-            n = 9
-            self.shape = [(math.cos(i * math.tau / n) * self.radius * rng.uniform(0.75, 1.1),
-                           math.sin(i * math.tau / n) * self.radius * rng.uniform(0.75, 1.1))
-                          for i in range(n)]
+            self.shape = asteroid_shape(self.radius, self.seed)
 
     # --- behaviour ----------------------------------------------------------
 
@@ -118,9 +127,10 @@ class Enemy:
         self.y = self.y0 + self.amp * math.sin(self.freq * self.age + self.phase)
 
     def _swarm(self, dt, game):
-        if self.home and self.x > game.ship.x + 60:
+        ship = game.target(self.x, self.y)
+        if self.home and self.x > ship.x + 60:
             step = self.home * dt
-            self.y0 += max(-step, min(step, game.ship.y - self.y0))
+            self.y0 += max(-step, min(step, ship.y - self.y0))
         self._sine(dt)
 
     def _scout(self, dt, game):
@@ -133,7 +143,7 @@ class Enemy:
             if self.x <= self.target_x:
                 self.state, self.state_t = "track", 0.0
         elif self.state == "track":                 # lines up with the ship
-            dy = game.ship.y - self.y
+            dy = game.target(self.x, self.y).y - self.y
             step = 170 * dt
             self.y += max(-step, min(step, dy))
             if self.state_t > 1.1:
@@ -175,7 +185,8 @@ class Enemy:
         if self.fire_t > 0:
             return
         self.fire_t = self.fire_every
-        base = math.atan2(game.ship.y - self.y, game.ship.x - self.x)
+        ship = game.target(self.x, self.y)
+        base = math.atan2(ship.y - self.y, ship.x - self.x)
         for i in range(count):
             a = base + (i - (count - 1) / 2) * spread
             game.enemy_fire(self.x - self.radius, self.y, a, self.shot_speed)
@@ -324,7 +335,8 @@ class Interceptor:
     # --- patterns -----------------------------------------------------------
 
     def _aimed(self, game):
-        base = math.atan2(game.ship.y - self.y, game.ship.x - self.x)
+        ship = game.target(self.x, self.y)
+        base = math.atan2(ship.y - self.y, ship.x - self.x)
         n = 5 + self.level_index // 2 * 2
         for i in range(n):
             game.enemy_fire(self.x, self.y, base + (i - (n - 1) / 2) * 0.15,

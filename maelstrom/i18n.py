@@ -304,3 +304,29 @@ def ship_name(key):
 
 def ship_desc(key):
     return _text("ships.%s.desc" % key, "")
+
+
+# ---------------------------------------------------------- texts as data ----
+# A text can also be written as DATA, to be translated later: the co-op host
+# sends its banners and floating texts this way, so that each machine shows
+# them in its own language. A spec is
+#   - a plain string, shown as is;
+#   - ["t", key, {fields}]   -> t(key, **fields), a field may itself be a spec;
+#   - [label, key]           -> one of the label functions below.
+_LABELS = {"level_name": level_name, "boss_name": boss_name,
+           "weapon_name": weapon_name, "pickup_name": pickup_name}
+
+
+def text(spec):
+    """The text a spec describes, in the current language."""
+    if isinstance(spec, str):
+        return spec
+    try:
+        name, key = spec[0], spec[1]
+        if name == "t":
+            fields = spec[2] if len(spec) > 2 else {}
+            return t(key, **{k: text(v) if isinstance(v, list) else v
+                             for k, v in fields.items()})
+        return _LABELS[name](key)
+    except (IndexError, KeyError, TypeError, AttributeError):
+        return str(spec)
