@@ -44,7 +44,7 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     renumerotees). Maelstrom ne l'est **pas** aujourd'hui : les vagues sont deja
     semees par secteur (bon depart), mais les butins, les particules et la gigue
     des ennemis passent par le `random` global. Un vrai lockstep demande de
-      purger ce RNG (RNG seme partage), de fixer le pas de simulation et de
+    purger ce RNG (RNG seme partage), de fixer le pas de simulation et de
     bannir le non-deterministe. Alternative plus simple mais qui s'ecarte de
     purr-tage : un hote autoritaire qui diffuse l'etat.
   - *A definir* : co-op vs versus ; ecran de lobby / decouverte LAN dans
