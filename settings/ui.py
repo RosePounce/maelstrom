@@ -69,6 +69,9 @@ C_HEART        = (255, 120, 60)
 C_HEART_COLD   = (70, 140, 110)
 C_CAUSTIC      = (170, 255, 60)
 
+# The two ships of a co-op game: player 1 keeps the usual cyan
+C_PLAYERS      = (C_NEON_CYAN, (255, 196, 84))
+
 # Player weapons
 C_PULSE        = C_NEON_CYAN
 C_FRAG         = C_NEON_ORANGE

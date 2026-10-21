@@ -1,10 +1,14 @@
-"""The loop of one sector: `play()`.
+"""The loop of one sector: `play()`, and of a co-op game: `play_coop()`.
 
 Reads the events, forwards them to the game (`Game`), updates it and draws
 it. A death does NOT leave this loop: "Reessayer" starts a new attempt in
 the same `Game`, so a die-and-retry costs no loading. F8 opens the bug
 report form (desktop), which freezes everything. Asynchronous, like
 every loop of the game: pygbag requires it.
+
+A co-op game chains its sectors here rather than in main.py: the link stays
+open from one sector to the next, and the client follows the host's "level"
+message.
 """
 
 import asyncio
@@ -23,23 +27,51 @@ from maelstrom.session.game import Game
 current_game = None
 
 
+def _prepare_window():
+    screen.SCREEN = make_screen()
+    pygame.display.set_caption(i18n.window_caption())
+    pygame.display.set_icon(screen.ICON)
+
+
 async def play(level_index):
     """Plays sector `level_index` until the player leaves it. Returns
     `(outcome, level)`: outcome is "menu", "quit", "hangar" or "next", and
     `level` the sector to play next (the same one after a death, the
     following one after a cleared sector)."""
-    screen.SCREEN = make_screen()
-    pygame.display.set_caption(i18n.window_caption())
-    pygame.display.set_icon(screen.ICON)
-    global current_game
+    _prepare_window()
     game = Game(level_index)
+    return await _run(game), game.next_level
+
+
+async def play_coop(session, level_index):
+    """Plays a co-op game from sector `level_index`, sector after sector,
+    until one side leaves. Returns "menu" or "quit"; the session stays open
+    (the caller closes it)."""
+    global current_game
+    _prepare_window()
+    carry = None
+    while True:
+        game = Game(level_index, coop=session, carry=carry)
+        outcome = await _run(game)
+        current_game = None
+        if outcome != "next":
+            return outcome
+        if session.role == "host":
+            session.send({"type": "level", "level": game.next_level})
+        level_index, carry = game.next_level, game.carry_out
+
+
+async def _run(game):
+    """The frames of one `Game`, until it asks to leave. Returns "quit" or
+    `game.exit_request`."""
+    global current_game
     current_game = game
     while True:
         dt = min(screen.CLOCK.tick(FPS) / 1000.0, 0.05)
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 game.bank()
-                return "quit", game.next_level
+                return "quit"
             if e.type == pygame.KEYDOWN:
                 if game.showing_bug_form:
                     game.bug_form_key(e)     # the form takes the whole keyboard
@@ -59,7 +91,7 @@ async def play(level_index):
                 game.focus_lost()
         if game.exit_request:
             game.bank()
-            return game.exit_request, game.next_level
+            return game.exit_request
         if not game.showing_bug_form:        # the form freezes everything
             game.update(dt)
         game.tick_notice(dt)                 # also runs under the pause menu

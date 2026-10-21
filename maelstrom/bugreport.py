@@ -110,6 +110,7 @@ def game_context(game):
         level = game.level
         rows += [
             ("sector", f"{game.level_index + 1} ({level['key']})"),
+            ("mode", game.role + (f", local ship {game.me + 1}" if game.coop else "")),
             ("phase", f"{game.phase} ({game.phase_t:.1f} s)"
                       + (f", overlay {game.overlay}" if game.overlay else "")),
             ("sector clock", f"{game.t:.1f} / {level['duration']} s "

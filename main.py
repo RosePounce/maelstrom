@@ -12,9 +12,11 @@ In the browser (pygbag packages this folder as WebAssembly):
     pygbag .                 # serves on http://localhost:8000
     pygbag --build .         # writes build/web/, to publish as is
 
-Three layers, one role each: et le chieta
-  - main.py    this loop: home -> sectors -> sector -> ... -> home;
-  - menu.py    the screens outside a sector (home, sectors, hangar, options);
+Three layers, one role each:
+  - main.py    this loop: home -> sectors -> sector -> ... -> home, and the
+               co-op one: home -> ship -> lobby -> sector -> ... -> home;
+  - menu.py    the screens outside a sector (home, sectors, hangar, options,
+               co-op lobby);
   - game/      the game, whose `loop.play()` plays ONE sector (all its
                attempts) and returns where to go next; its settings are
                apart, in settings/.
@@ -54,6 +56,31 @@ async def campaign(level):
         return outcome
 
 
+async def coop():
+    """A two-player co-op game on the local network (desktop only). Returns
+    "menu" or "quit".
+
+    Each player picks their ship, then hosts or joins in the lobby. The host
+    picks the sector among those IT has freed; the client waits for it."""
+    chosen = await menu.ships()
+    if chosen != "start":
+        return chosen
+    session = await menu.lobby()
+    if isinstance(session, str):
+        return session
+    try:
+        if session.role == "host":
+            level = await menu.sectors()
+            if isinstance(level, str):           # the host went back
+                return level
+            session.send({"type": "start", "level": level, "players": session.players})
+        else:
+            level = session.start_level
+        return await loop.play_coop(session, level)
+    finally:
+        session.close()
+
+
 async def main():
     menu.init()
     while True:
@@ -66,6 +93,10 @@ async def main():
             continue
         if choice == "options":
             if await menu.options() == "quit":
+                break
+            continue
+        if choice == "coop":
+            if await coop() == "quit":
                 break
             continue
         # campaign: pick a ship, then the sector list (coming back to it loops)

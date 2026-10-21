@@ -238,3 +238,11 @@ LEVELS = (
 )
 GAP_RAMP = 0.35
 BOSS_CLEAR_WAIT = 5.0          # max wait for the last ships before the boss
+
+
+# ----------------------------------------------------------------------
+#  Two-player co-op (LAN)
+# ----------------------------------------------------------------------
+
+COOP_RESPAWN = 6.0             # seconds a downed ship waits before it returns
+COOP_REVIVE_HULL = 0.5         # part of its hull it returns with

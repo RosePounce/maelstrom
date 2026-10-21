@@ -5,6 +5,9 @@ AZERTY and QWERTY work without a setting). The rest arrives as events,
 forwarded by `loop.play()`: `key_down`, `click`, `release`, `motion`.
 A press that lands on no button starts a DRAG: the ship follows the
 pointer's motion (relative, so the finger never hides the ship).
+
+In co-op the pause does not freeze anything (the partner keeps flying), and
+only the host answers the death and "sector freed" overlays.
 """
 
 import math
@@ -33,6 +36,21 @@ class Controls:
             ax, ay = ax / math.sqrt(2), ay / math.sqrt(2)
         return ax, ay
 
+    def local_axes(self):
+        """The local player's direction; none while a menu covers the game
+        (a co-op pause does not freeze the ship)."""
+        if self.overlay or self.showing_bug_form:
+            return 0.0, 0.0
+        return self.input_axes()
+
+    def fire_local(self):
+        """Space or the AX button: the local ship fires its missiles (a co-op
+        client asks the host)."""
+        if self.role == "client":
+            self.missile_presses += 1
+        else:
+            self.fire_missiles(self.ship)
+
     def key_down(self, key):
         if key in (pygame.K_ESCAPE, pygame.K_p):
             if self.overlay == "pause":
@@ -40,12 +58,14 @@ class Controls:
             elif self.overlay is None:
                 self.open_pause()
             return
-        if self.overlay in ("dead", "cleared"):
-            if key in CONFIRM and self.overlay_ready():
+        if self.overlay in ("dead", "cleared", "lost"):
+            # a co-op client waits for the host: Enter would only leave
+            if (key in CONFIRM and self.overlay_ready()
+                    and (self.role != "client" or self.overlay == "lost")):
                 self.do_action(self.overlay_buttons[0][0])
             return
         if self.overlay is None and key in MISSILE_KEYS:
-            self.fire_missiles()
+            self.fire_local()
 
     def click(self, pos):
         if self.showing_bug_form:        # the form captures every click
@@ -62,7 +82,7 @@ class Controls:
         if self.btn_pause.click(pos):
             self.open_pause()
         elif self.btn_ax.click(pos):
-            self.fire_missiles()
+            self.fire_local()
         else:
             self.pointer = pos
 
@@ -84,7 +104,7 @@ class Controls:
         # the frame under the pause menu, not yet drawn over: what its
         # "Signaler un bug" button will attach
         self.pause_shot = bugreport.capture_screen()
-        self.paused = True
+        self.paused = not self.coop          # co-op: the partner keeps flying
         self.pointer = None
         self.open_overlay("pause")
 
@@ -95,8 +115,8 @@ class Controls:
 
     def focus_lost(self):
         """The window (or the browser tab) lost the focus: pause, so that the
-        ship does not die alone."""
-        if self.overlay is None and not self.showing_bug_form:
+        ship does not die alone. Not in co-op: the game goes on anyway."""
+        if self.overlay is None and not self.showing_bug_form and not self.coop:
             self.open_pause()
 
     def do_action(self, action):

@@ -12,6 +12,12 @@ The phases of an attempt (`self.phase`):
   boss_dying  its explosions, the ship cannot be hurt any more;
   dead        the ship is destroyed: retry overlay;
   cleared     the sector is freed: next / hangar / menu overlay.
+
+Co-op (`coop` given, see coop.py): `self.ships` holds both ships, `self.ship`
+stays the LOCAL one (HUD, controls). The host (`role` "host") simulates as
+solo does and sends snapshots; the client (`role` "client") simulates nothing
+and draws what it receives. A ship shot down returns after COOP_RESPAWN
+seconds; the attempt is lost only when both are down.
 """
 
 import random
@@ -19,16 +25,16 @@ import random
 import pygame
 
 from settings.balance import (
-    BOSS_CLEAR_WAIT, BOSS_WARNING, BOSSES, HANGAR, LEVELS, MISSILE_MAX,
-    MISSILE_START,
+    BOSS_CLEAR_WAIT, BOSS_WARNING, BOSSES, COOP_RESPAWN, HANGAR, LEVELS,
+    MISSILE_MAX, MISSILE_START,
 )
 from settings.ui import (
-    BANNER_TIME, C_NEON_CYAN, C_NEON_RED, C_TEXT_GRAY, HEIGHT, SHAKE_DECAY,
-    WIDTH,
+    BANNER_TIME, C_NEON_CYAN, C_NEON_RED, C_PLAYERS, C_TEXT_GRAY, HEIGHT,
+    SHAKE_DECAY, WIDTH,
 )
 from maelstrom import i18n, screen
 from maelstrom.backdrop import Backdrop
-from maelstrom.effects import FloatText, Particle
+from maelstrom.effects import Particle
 from maelstrom.enemies import Enemy, Interceptor
 from maelstrom.levels import build_script
 from maelstrom.player import Ship
@@ -36,16 +42,26 @@ from maelstrom.storage import base_loadout, log, read_meta, write_meta
 from maelstrom.session.bug_form import BugForm
 from maelstrom.session.combat import Combat
 from maelstrom.session.controls import Controls
+from maelstrom.session.coop import Coop, profile
 from maelstrom.session.hud import Hud
 
 
 # Phases in which the world moves and the ship flies
 FLYING = ("play", "warning", "boss", "boss_dying")
+SPAWN_X = 140
 
 
-class Game(Combat, Controls, Hud, BugForm):
-    def __init__(self, level_index):
+class Game(Combat, Controls, Hud, BugForm, Coop):
+    def __init__(self, level_index, coop=None, carry=None):
+        """`coop`: the co-op session (coop.Session), None solo. `carry`: in
+        co-op, the loadouts the ships bring from the sector just cleared."""
         self.meta = read_meta()
+        self.coop = coop
+        self.role = coop.role if coop else "solo"
+        self.me = coop.me if coop else 0         # index of the local ship
+        # who flies: ship, hangar and per-sector loadouts of each player
+        self.players = coop.players if coop else [profile(self.meta)]
+        self.carry = carry
         self.level_index = level_index
         self.level = LEVELS[level_index]
         self.scroll = self.level["scroll"]
@@ -53,29 +69,46 @@ class Game(Combat, Controls, Hud, BugForm):
         self.world = pygame.Surface((WIDTH, HEIGHT)).convert()
         self.exit_request = None         # "menu", "quit", "hangar", "next"
         self.next_level = level_index    # the sector main.py plays next
-        self.checkpoint = None           # ship loadout when the boss came
+        self.checkpoint = None           # ship loadouts when the boss came
+        self.carry_out = None            # co-op: loadouts after a cleared sector
         self.unbanked = 0                # meta-alloy not yet written to the meta
+        self.next_uid = 1                # names the enemies on the network
+        self.init_coop()
         self.layout_hud()
         self.build_bug_form()
         self.start(from_boss=False)
 
     # --- an attempt ---------------------------------------------------------
 
-    def entry_loadout(self):
-        """The loadout the ship had when it entered this sector."""
+    def entry_loadout(self, i=0):
+        """The loadout ship `i` had when it entered this sector."""
+        if self.carry:
+            return dict(self.carry[i])
+        player = self.players[i]
         if self.level_index == 0:
-            return base_loadout(self.meta["ship"])
-        return dict(self.meta["loadouts"][self.level_index]
-                    or base_loadout(self.meta["ship"]))
+            return base_loadout(player["ship"])
+        return dict(player["loadouts"][self.level_index]
+                    or base_loadout(player["ship"]))
+
+    def spawn_y(self, i):
+        if len(self.players) == 1:
+            return HEIGHT * 0.45
+        return HEIGHT * (0.33 + 0.26 * i)
+
+    def make_ship(self, i, from_boss):
+        player = self.players[i]
+        loadout = (dict(self.checkpoint[i]) if from_boss and self.checkpoint
+                   else self.entry_loadout(i))
+        floor = MISSILE_START + HANGAR["missiles"]["step"] * player["hangar"].get("missiles", 0)
+        loadout["missiles"] = min(MISSILE_MAX, max(loadout["missiles"], floor))
+        return Ship(SPAWN_X, self.spawn_y(i), player["hangar"], loadout,
+                    player["ship"], C_PLAYERS[i])
 
     def start(self, from_boss):
         """A new attempt: from the start of the sector, or from its
-        Interceptor with the loadout the ship had when it came."""
-        loadout = dict(self.checkpoint) if from_boss and self.checkpoint else self.entry_loadout()
-        floor = MISSILE_START + HANGAR["missiles"]["step"] * self.meta["hangar"].get("missiles", 0)
-        loadout["missiles"] = min(MISSILE_MAX, max(loadout["missiles"], floor))
-        self.ship = Ship(140, HEIGHT * 0.45, self.meta["hangar"], loadout,
-                         self.meta["ship"])
+        Interceptor with the loadouts the ships had when it came."""
+        self.ships = [self.make_ship(i, from_boss) for i in range(len(self.players))]
+        self.ship = self.ships[self.me]
         self.script = build_script(self.level_index)
         self.script_i = 0
         self.t = 0.0                     # sector clock: drives the waves
@@ -92,32 +125,36 @@ class Game(Combat, Controls, Hud, BugForm):
         self.overlay = None              # "pause", "dead", "cleared"
         self.overlay_buttons = []
         self.pointer = None
-        self.drag = [0.0, 0.0]
+        self.drag = self.ship.drag       # the local controls push this one
         self.banner = None
+        if self.role == "client":        # the host decides, and announces
+            return
         if from_boss and self.checkpoint:
             self.t = self.level["duration"]
             self.enter_warning(checkpoint=False)
             self.phase_t = BOSS_WARNING * 0.45      # a shorter warning on a retry
         else:
-            self.show_banner(i18n.t("banner.sector", n=self.level_index + 1),
-                             i18n.level_name(self.level["key"]), C_NEON_CYAN)
+            self.show_banner(["t", "banner.sector", {"n": self.level_index + 1}],
+                             ["level_name", self.level["key"]], C_NEON_CYAN)
         log.info("sector %d attempt (from_boss=%s)", self.level_index + 1, from_boss)
 
     def show_banner(self, title, sub, color, time=BANNER_TIME):
-        self.banner = {"title": title, "sub": sub, "color": color,
-                       "t": time, "max": time}
+        """`title` and `sub` are texts as data (see `i18n.text`)."""
+        self.emit("banner", title, sub, color, time)
+        self.banner = {"title": i18n.text(title), "sub": i18n.text(sub),
+                       "color": color, "t": time, "max": time}
 
     def enter_warning(self, checkpoint=True):
         self.phase, self.phase_t = "warning", 0.0
         boss = self.level["boss"]
-        self.show_banner(i18n.t("banner.boss_warning"),
-                         i18n.t("banner.boss_warning_sub", name=i18n.boss_name(boss),
-                                hearts=BOSSES[boss]["hearts"]),
+        self.show_banner(["t", "banner.boss_warning"],
+                         ["t", "banner.boss_warning_sub",
+                          {"name": ["boss_name", boss], "hearts": BOSSES[boss]["hearts"]}],
                          C_NEON_RED, BOSS_WARNING)
         if checkpoint:
-            self.checkpoint = self.ship.loadout()
-            self.floats.append(FloatText(WIDTH // 2, HEIGHT * 0.62,
-                                         i18n.t("banner.checkpoint"), C_TEXT_GRAY, 2.2))
+            self.checkpoint = [ship.loadout() for ship in self.ships]
+            self.float_at(WIDTH // 2, HEIGHT * 0.62, ["t", "banner.checkpoint"],
+                          C_TEXT_GRAY, 2.2)
 
     def progress(self):
         return min(1.0, self.t / self.level["duration"])
@@ -138,7 +175,7 @@ class Game(Combat, Controls, Hud, BugForm):
             "overlay": self.overlay, "paused": self.paused,
             "t": round(self.t, 2), "elapsed": round(self.elapsed, 2),
             "script_i": self.script_i, "script_len": len(self.script),
-            "checkpoint": self.checkpoint, "kills": self.kills,
+            "checkpoint": self.checkpoint, "kills": self.kills, "role": self.role,
             "attempt_alloys": self.attempt_alloys, "unbanked": self.unbanked,
             "ship": {"x": round(ship.x), "y": round(ship.y),
                      "hull": round(ship.hull, 1), "hull_max": ship.hull_max,
@@ -159,6 +196,7 @@ class Game(Combat, Controls, Hud, BugForm):
     # --- the bank of meta-alloy ---------------------------------------------
 
     def gain_alloys(self, amount):
+        self.alloys_gained += amount
         self.unbanked += amount
         self.attempt_alloys += amount
 
@@ -172,6 +210,12 @@ class Game(Combat, Controls, Hud, BugForm):
 
     def die(self):
         self.phase, self.phase_t = "dead", 0.0
+        if self.coop:                    # the ships already blew up one by one;
+            self.bank()                  # the solo records stay the solo's
+            self.open_overlay("dead")
+            log.info("co-op sector %d: both ships down at %.0f%%",
+                     self.level_index + 1, self.progress() * 100)
+            return
         self.explode(self.ship.x, self.ship.y, C_NEON_CYAN, 60, 320)
         self.shake = 16
         self.meta["deaths"][self.level_index] += 1
@@ -183,6 +227,17 @@ class Game(Combat, Controls, Hud, BugForm):
     def clear_sector(self):
         i = self.level_index
         self.phase, self.phase_t = "cleared", 0.0
+        if self.coop:
+            # co-op: only the meta-alloy is kept (bank); the solo records,
+            # unlocks and loadouts are not touched. The loadouts go on to the
+            # next co-op sector instead.
+            if i + 1 < len(LEVELS):
+                self.next_level = i + 1
+                self.carry_out = [ship.loadout() for ship in self.ships]
+            self.bank()
+            self.open_overlay("cleared")
+            log.info("co-op sector %d cleared in %.1f s", i + 1, self.elapsed)
+            return
         best = self.meta["best"][i]
         if best is None or self.elapsed < best:
             self.meta["best"][i] = round(self.elapsed, 1)
@@ -198,7 +253,26 @@ class Game(Combat, Controls, Hud, BugForm):
 
     # --- simulation ---------------------------------------------------------
 
+    def live_ships(self):
+        return [ship for ship in self.ships if not ship.down]
+
+    def target(self, x, y):
+        """The ship a Thargoid at (x, y) goes after: the nearest one still
+        flying."""
+        ships = self.live_ships() or self.ships
+        return min(ships, key=lambda s: (s.x - x) ** 2 + (s.y - y) ** 2)
+
     def update(self, dt):
+        if self.role == "client":
+            self.mirror_update(dt)           # draws what the host sends
+            return
+        if self.role == "host":
+            self.host_receive()
+        self.simulate(dt)
+        if self.role == "host":
+            self.host_send()
+
+    def simulate(self, dt):
         if self.paused:
             return
         self.phase_t += dt
@@ -232,17 +306,20 @@ class Game(Combat, Controls, Hud, BugForm):
         elif self.phase == "boss_dying":
             self.update_boss_death(dt)
 
-        if self.phase == "cleared":            # the ship jumps out
-            self.ship.x += (200 + self.phase_t * 900) * dt
-            self.engine_trail()
+        if self.phase == "cleared":            # the ships jump out
+            for ship in self.live_ships():
+                ship.x += (200 + self.phase_t * 900) * dt
+                self.engine_trail(ship)
         if flying:
-            ax, ay = self.input_axes()
-            self.ship.update(dt, ax, ay, self.drag)
-            # `drag` is NOT cleared here: Ship.update spends what the cap allows
-            # and leaves the rest, so a fast flick carries over and catches up.
-            if self.ship.ready_to_fire(dt):
-                self.shots.extend(self.ship.volley())
-            self.engine_trail()
+            self.ship.axes = self.local_axes()
+            for ship in self.live_ships():
+                ship.update(dt, ship.axes[0], ship.axes[1], ship.drag)
+                # `drag` is NOT cleared here: Ship.update spends what the cap
+                # allows and leaves the rest, so a fast flick carries over.
+                if ship.ready_to_fire(dt):
+                    self.shots.extend(ship.volley())
+                self.engine_trail(ship)
+            self.update_downed(dt)
 
         self.shots = [s for s in self.shots if s.update(dt)]
         self.enemy_shots = [s for s in self.enemy_shots if s.update(dt)]
@@ -252,8 +329,7 @@ class Game(Combat, Controls, Hud, BugForm):
         for e in self.enemies:
             e.update(dt, self)
         self.enemies = [e for e in self.enemies if not e.gone]
-        ship = self.ship if flying else None
-        self.pickups = [p for p in self.pickups if p.update(dt, ship, self.ship.magnet)]
+        self.pickups = [p for p in self.pickups if self.update_pickup(p, dt, flying)]
         self.clouds = [c for c in self.clouds if c.update(dt)]
         self.particles = [p for p in self.particles if p.update(dt)]
         self.floats = [f for f in self.floats if f.update(dt)]
@@ -261,17 +337,58 @@ class Game(Combat, Controls, Hud, BugForm):
 
         if flying:
             self.collide()
-            if self.ship.hull <= 0 and self.phase != "boss_dying":
-                self.die()
+            if self.phase != "boss_dying":
+                self.check_hulls()
 
-    def engine_trail(self):
-        if random.random() < 0.6 and not self.ship.has("shutdown"):
-            self.particles.append(Particle(self.ship.x - 18, self.ship.y + random.uniform(-2, 2),
+    def update_pickup(self, p, dt, flying):
+        """A bonus drifts to the nearest ship still flying."""
+        ships = self.live_ships() if flying else []
+        if not ships:
+            return p.update(dt, None, 0)
+        ship = min(ships, key=lambda s: (s.x - p.x) ** 2 + (s.y - p.y) ** 2)
+        return p.update(dt, ship, ship.magnet)
+
+    def check_hulls(self):
+        """Solo, a hull at 0 ends the attempt. Co-op, the ship goes down and
+        the attempt ends only when no ship is left."""
+        if not self.coop:
+            if self.ship.hull <= 0:
+                self.die()
+            return
+        for i, ship in enumerate(self.ships):
+            if not ship.down and ship.hull <= 0:
+                ship.knock_down(COOP_RESPAWN)
+                self.explode(ship.x, ship.y, ship.color, 60, 320)
+                self.shake = max(self.shake, 12)
+                self.float_at(ship.x, ship.y - 30, ["t", "coop.down", {"n": i + 1}],
+                              ship.color, 1.8)
+        if not self.live_ships():
+            self.die()
+
+    def update_downed(self, dt):
+        """Co-op: a downed ship returns once its delay is out, as long as its
+        partner still flies."""
+        for i, ship in enumerate(self.ships):
+            if not ship.down:
+                continue
+            ship.respawn_t -= dt
+            if ship.respawn_t <= 0 and self.live_ships():
+                ship.revive(SPAWN_X, self.spawn_y(i))
+                self.ring(ship.x, ship.y, 60, ship.color, 0.5)
+                self.float_at(ship.x, ship.y - 30, ["t", "coop.revived", {"n": i + 1}],
+                              ship.color)
+
+    def engine_trail(self, ship):
+        if random.random() < 0.6 and not ship.has("shutdown"):
+            self.particles.append(Particle(ship.x - 18, ship.y + random.uniform(-2, 2),
                                            -random.uniform(80, 160), random.uniform(-15, 15),
                                            0.28, (255, 120, 170), 2))
 
     def spawn_enemy(self, kind, x, y, params=None):
-        self.enemies.append(Enemy(kind, x, y, self.level_index, params))
+        enemy = Enemy(kind, x, y, self.level_index, params)
+        enemy.uid = self.next_uid
+        self.next_uid += 1
+        self.enemies.append(enemy)
 
     # --- drawing ------------------------------------------------------------
 
@@ -291,7 +408,9 @@ class Game(Combat, Controls, Hud, BugForm):
         if self.boss and self.phase in ("boss", "boss_dying"):
             self.boss.draw(w)
         if self.phase in FLYING or self.phase == "cleared":
-            self.ship.draw(w)
+            for ship in self.live_ships():
+                ship.draw(w)
+            self.draw_tags(w)
         for s in self.enemy_shots:
             s.draw(w)
         for r in self.rings:
