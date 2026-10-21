@@ -24,7 +24,7 @@ from settings.ui import (
     C_NEON_RED, C_PLAYERS, C_THARG, C_THARG_DARK, FPS, HEIGHT, LEVEL_LOOKS,
     WEB, WIDTH,
 )
-from maelstrom import i18n, screen
+from maelstrom import bugform, i18n, screen
 from maelstrom.backdrop import Backdrop
 from maelstrom.neon import blit_glow, draw_bar, draw_sun, neon_polygon
 from maelstrom.player import COCKPIT, HULL_SHAPE, SHIP_SHAPES
@@ -37,10 +37,39 @@ BTN_W, BTN_H = 300, 44
 MENU_SCROLL = 60                 # the backdrop drifts slowly behind the menus
 
 
+_bug = None                      # the bug report form shared by every screen
+
+
 def init():
     """Prepares the game. To be called first (main.py)."""
+    global _bug
     i18n.set_language(i18n.detect())
     screen.init()
+    _bug = bugform.BugForm()     # built after the language and fonts are ready
+
+
+def _bug_intercept(e, name):
+    """F8 opens the report form over any menu (desktop; it self-guards on the
+    web). While it is open it takes every key and left click, so the screen
+    underneath cannot navigate. Returns True when the event was consumed."""
+    if _bug.is_open:
+        if e.type == pygame.KEYDOWN:
+            _bug.key(e)
+        elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            _bug.click(e.pos)
+        return e.type != pygame.QUIT      # let QUIT through, swallow the rest
+    if e.type == pygame.KEYDOWN and e.key == pygame.K_F8:
+        _bug.open(screen_name=name, shot=screen.SCREEN.copy())
+        return _bug.is_open
+    return False
+
+
+def _bug_overlay(surf, dt):
+    """Draw the form and its notice, after the screen has drawn itself."""
+    _bug.tick_notice(dt)
+    if _bug.is_open:
+        _bug.draw(surf, dt)
+    _bug.draw_notice(surf)
 
 
 # ----------------------------------------------------------------------
@@ -310,6 +339,8 @@ async def home():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "home"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -330,6 +361,7 @@ async def home():
         for _, c in cards + buttons:
             c.draw(surf, mouse)
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)
 
@@ -415,6 +447,8 @@ async def ships():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "ships"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -448,6 +482,7 @@ async def ships():
         start.draw(surf, mouse)
         back.draw(surf, mouse)
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)
 
@@ -486,6 +521,8 @@ async def sectors():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "sectors"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -517,6 +554,7 @@ async def sectors():
             t = screen.FONT_TINY.render(line, True, C_TEXT_GRAY)
             surf.blit(t, t.get_rect(center=(WIDTH // 2, HEIGHT - 56 + k * 16)))
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)
 
@@ -567,6 +605,8 @@ async def hangar():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "hangar"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -594,6 +634,7 @@ async def hangar():
         surf.blit(t, t.get_rect(center=(WIDTH // 2, top + len(rows) * step + 14)))
         back.draw(surf, mouse)
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)
 
@@ -617,6 +658,8 @@ async def options():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "options"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -644,6 +687,7 @@ async def options():
         lang.draw(surf, mouse)
         back.draw(surf, mouse)
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)
 
@@ -746,6 +790,8 @@ async def lobby():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "lobby"):
+                continue
             if e.type == pygame.QUIT:
                 return leave("quit")
             if e.type == pygame.KEYDOWN:
@@ -898,5 +944,6 @@ async def lobby():
             cancel.text = i18n.t("menu.btn_cancel")
             cancel.draw(surf, mouse)
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)

@@ -34,7 +34,7 @@ import pygame
 
 import menu
 from settings.ui import WEB
-from maelstrom import bugreport, loop
+from maelstrom import bugreport, bugsend, loop
 
 
 async def campaign(level):
@@ -83,6 +83,7 @@ async def coop():
 
 async def main():
     menu.init()
+    bugsend.flush_async()        # resend whatever an earlier run could not
     while True:
         choice = await menu.home()
         if choice == "quit":
@@ -161,6 +162,13 @@ except Exception:
     folder = bugreport.report_crash(loop.current_game)
     if folder:
         print(f"Crash report written to {folder}", file=sys.stderr)
+        # Leave a ticket so the next launch sends it (sending now, on the way
+        # down, is unsafe). Only when the player allowed it and a relay is set.
+        if bugsend.consent() and bugsend.enabled():
+            try:
+                bugsend.queue_report(folder, "crash")
+            except OSError:
+                pass
     raise
 if not WEB:
     pygame.quit()

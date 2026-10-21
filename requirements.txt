@@ -2,3 +2,9 @@
 # pygame-ce (Community Edition) en fournit une et expose la même API.
 pygame==2.6.1 ; python_version < "3.14"
 pygame-ce>=2.5.8 ; python_version >= "3.14"
+
+# Paquets installés (PyInstaller) seulement : certifi fournit son propre
+# magasin de certificats pour l'envoi HTTPS des rapports (maelstrom/bugsend.py).
+# Inutile à l'exécution depuis les sources, où rien n'est envoyé par défaut.
+certifi
+

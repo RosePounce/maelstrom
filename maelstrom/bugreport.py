@@ -41,6 +41,11 @@ LOG_TAIL_LINES = 200
 DESCRIPTION_MAX_LEN = 200     # the form is a single line
 
 
+def report_dir():
+    """Where reports, the outbox and send.log live (`maelstrom/bugsend.py`)."""
+    return REPORT_DIR
+
+
 def git_commit():
     """Short hash of the checked-out commit (with "+dirty" if the project
     folder has local changes), or "unknown" outside a git checkout."""

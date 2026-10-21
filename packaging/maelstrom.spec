@@ -29,7 +29,9 @@ a = Analysis(
     pathex=[ROOT],
     binaries=[],
     datas=DATAS,
-    hiddenimports=[],
+    # certifi carries its own CA bundle: a packaged Python does not always find
+    # the system's, and the relay is reached over HTTPS (maelstrom/bugsend.py).
+    hiddenimports=["certifi"],
     hookspath=[],
     runtime_hooks=[],
     excludes=["tkinter", "numpy", "matplotlib", "PIL", "pydoc", "doctest"],

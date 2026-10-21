@@ -65,42 +65,6 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     victoire dans les locales (mettre a jour `victory.sub`) ; lien avec le cran
     de difficulte « Titan ».
 
-- [ ] (P1) **F8 partout** — pouvoir signaler un bug (F8) a n'importe quelle etape,
-  y compris dans les menus (accueil, choix du vaisseau, secteurs, hangar, options),
-  pas seulement en partie. Aujourd'hui F8 n'ouvre le formulaire que dans un secteur
-  (`loop.play`) ; le filet anti-plantage couvre deja les menus, mais pas le
-  signalement manuel.
-  - *Cas vecu* (rapport `saves/bugs/20261021-163755`, « libelle qui depasse des
-    bouton ») : le defaut etait sur l'ecran du choix du vaisseau, mais le rapport
-    n'a pu etre fait qu'en partie. Il est arrive avec la capture et l'etat du
-    secteur 1, sans rapport avec le bug ; il a fallu le retrouver en rendant tous
-    les ecrans un par un.
-  - *A definir* : sortir le formulaire de `session/bug_form.py` pour qu'un ecran
-    de menu (sans instance `Game`) puisse l'ouvrir ; variante de
-    `bugreport.write_report` sans partie (ecran + description + quel ecran + meta,
-    comme le fait deja `report_crash` avec « game: none (menus) ») ; chaque boucle
-    d'ecran de `menu.py` gere F8 et fige l'ecran pendant la saisie ; **bureau
-    seulement** (comme l'existant).
-
-- [ ] (P1) **Remontee des bugs vers un relais Cloudflare** — sur le modele de
-  purr-tage (`relay/` et `purrtage/bugsend.py`), pour les versions installees
-  (AppImage, installeur Windows) produites par `.github/workflows/packages.yml` :
-  aujourd'hui un rapport F8 ou un plantage reste dans le dossier du joueur
-  (`saves/bugs/`, ou `~/.local/share/maelstrom/bugs/` / `%APPDATA%\Maelstrom\bugs\`
-  une fois installe) et ne nous parvient jamais.
-  - *Principe* : le jeu ne connait qu'une adresse, celle d'un Cloudflare Worker
-    (offre gratuite, stockage Workers KV) qui verifie le rapport, en garde une
-    copie et le transmet aux services branches (GitHub Issues, Discord,
-    e-mail) ; aucune cle de service dans le jeu, dont le code est public.
-  - *Cote jeu* : envoi HTTPS en tache de fond apres l'ecriture sur disque
-    (`bugreport`), boite d'envoi `outbox/` rejouee au lancement suivant (rien
-    perdu hors connexion), journal `send.log` ; certificats `certifi` a
-    embarquer dans `packaging/maelstrom.spec` ; notification du resultat dans le
-    formulaire ; consentement du joueur avant envoi ; **bureau seulement**.
-  - *A definir* : reprendre le Worker de purr-tage tel quel ou un deploiement
-    dedie ; URL du relais dans `settings/` ; commit de la version installee
-    (`bugreport.git_commit` renvoie « unknown » hors depot : l'injecter au
-    build) ; lien avec **F8 partout** ci-dessus.
 
 - [ ] (P1) **Boss : nouveaux motifs et petales a cibler** (retour de jeu,
   rapports `20261021-163941` « changer le paterne des boss » et
@@ -175,6 +139,23 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     cote client si le reseau saccade.
 
 ## Fait
+
+- [x] (P1) **F8 partout** — le formulaire de rapport s'ouvre a F8 sur chaque
+  ecran hors secteur (accueil, vaisseau, secteurs, hangar, options, salon),
+  plus seulement en partie. Le formulaire est sorti dans `maelstrom/bugform.py`
+  (classe `BugForm`, utilisable sans instance `Game`) ; `session/bug_form.py`
+  n'en est plus que l'adaptateur du jeu (qui repasse par la pause a la
+  fermeture). Chaque boucle de `menu.py` appelle `_bug_intercept` / `_bug_overlay` ;
+  le rapport note l'ecran d'ou il part (`screen: <nom>`). Bureau seulement.
+
+- [x] (P1) **Remontee des bugs vers un relais Cloudflare** — sur le modele de
+  purr-tage : `maelstrom/bugsend.py` (envoi HTTPS en tache de fond, boite
+  `saves/bugs/outbox/` rejouee au lancement, `send.log`, `certifi`), une case
+  « Envoyer le rapport » dans le formulaire (consentement memorise dans
+  `prefs.json`), `BUG_REPORT_URL` dans `settings/` (depassable par
+  `MAELSTROM_REPORT_URL`, actif seulement une fois empaquete). Le relais est un
+  Cloudflare Worker dans `relay/` (Discord), a deployer sur le compte
+  RosePounce. Bureau seulement.
 
 - [x] **Ecran du choix du vaisseau : mise en page** (retour de jeu, rapport
   `20261021-163755`) — le libelle « Lancer la campagne (Entree) » debordait de son

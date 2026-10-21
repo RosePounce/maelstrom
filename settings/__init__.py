@@ -17,3 +17,9 @@ None of this imports the game code. Values that are CREATED at runtime
 GAME_NAME = "Maelstrom"          # proper noun: the same in every language
 VERSION = "0.2.0"
 VERSION_LABEL = f"{GAME_NAME}   -   beta {VERSION}"
+
+# The one address an installed build sends its bug reports to: a Cloudflare
+# Worker (see relay/) that forwards them and holds no secret in this public
+# code. Only a packaged build uses it; from the sources nothing leaves unless
+# MAELSTROM_REPORT_URL points elsewhere. See maelstrom/bugsend.py.
+BUG_REPORT_URL = "https://maelstrom.rose-pounce.workers.dev/report"

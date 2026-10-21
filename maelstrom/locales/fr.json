@@ -184,7 +184,13 @@
     "btn_cancel": "Annuler",
     "count": "{count}/{max}",
     "saved": "Rapport enregistre : saves/bugs/{folder}",
-    "failed": "Rapport non enregistre (disque refuse)"
+    "failed": "Rapport non enregistre (disque refuse)",
+    "send_label": "Envoyer le rapport",
+    "offline": "Enregistre sur le disque (aucun relais configure).",
+    "sending": "Envoi du rapport...",
+    "sent": "Rapport envoye. Merci !",
+    "queued": "Pas de connexion : le rapport sera envoye au prochain lancement.",
+    "send_failed": "Le rapport n'a pas pu etre envoye (conserve sur le disque)."
   },
 
   "lan": {
