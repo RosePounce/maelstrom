@@ -13,13 +13,15 @@ preview_urls = false
 # Variables and Secrets, type Secret) or with `wrangler secret put
 # DISCORD_WEBHOOK_URL`, never here.
 [vars]
+GITHUB_REPO = "RosePounce/maelstrom"
+GITHUB_LABELS = "bug,signalement-joueur"
 REPORT_TTL_DAYS = "180"         # then KV deletes the report and its screenshot
 
 # A copy of every report, and the screenshots the issues link to.
 # Create the "maelstrom-reports" namespace and paste its id here: see README.md.
 [[kv_namespaces]]
 binding = "REPORTS"
-id = "REPLACE_WITH_THE_NAMESPACE_ID"
+id = "770a4bbeab3c4044abba9c544a4f6b7c"
 
 # At most 5 reports a minute from the same address.
 [[ratelimits]]
