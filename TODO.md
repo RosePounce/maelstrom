@@ -98,11 +98,11 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     la **carte de la Voie lactee** ; suite naturelle de **Loots et
     ameliorations**.
 
-## En cours
+## Fait
 
-- [ ] (P3) **Multijoueur a 2 en LAN** — En branche `feature/coop-lan`.
-  **Cooperatif**, desktop seulement (carte « Coop LAN » de l'accueil, absente
-  sous pygbag). Choix faits :
+- [x] (P3) **Multijoueur a 2 en LAN** — branche `feature/coop-lan`, **teste et
+  valide sur deux machines**. **Cooperatif**, desktop seulement (carte
+  « Coop LAN » de l'accueil, absente sous pygbag).
   - **Hote autoritaire** plutot que lockstep : l'hote simule comme en solo avec
     un 2e vaisseau pilote par le reseau, et envoie un instantane JSON par image
     (`session/coop.py`) ; le client envoie ses entrees, dessine et rejoue les
@@ -116,12 +116,6 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
   - **Meta** : chacun son vaisseau, son hangar, ses equipements ; meta-alliage
     de l'equipe verse aux deux ; records et deblocages solo intouches ; l'hote
     choisit parmi ses secteurs liberes.
-  - *Reste a faire* : traduction anglaise des nouvelles cles (`menu.card_coop*`,
-    `lan.*`, `coop.*`, pour l'instant en repli sur le francais) ; essai reel sur
-    deux machines (pare-feu, Windows <-> Linux) ; eventuellement interpolation
-    cote client si le reseau saccade.
-
-## Fait
 
 - [x] (P2) **Musique synthwave** — leve le « pas de son ». `maelstrom/audio.py`
   streame une piste a la fois (`pygame.mixer.music`), table `MUSIC` et assets
