@@ -194,7 +194,7 @@ MUSIC = {
     "medusa":    ("boss_medusa", True),
     "hydra":     ("boss_hydra", True),
     "dead":      ("dead", False),
-    "cleared":   ("cleared", False),            # not made yet
+    "cleared":   ("cleared", False),            # the sector-cleared fanfare
 }
 MUSIC_VOLUMES = (0.0, 0.25, 0.5, 0.75, 1.0)   # the steps of the options button
 MUSIC_VOLUME = 0.5             # until the player picks one
