@@ -237,7 +237,3 @@ build/
 packaging/icon.png
 packaging/icon.ico
 *.AppImage
-
-# packaging: icons are generated from assets/favicon.png
-packaging/icon.png
-packaging/icon.ico

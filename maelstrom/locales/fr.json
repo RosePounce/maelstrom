@@ -19,7 +19,8 @@
     "fullscreen_on": "Plein ecran : oui   (F11)",
     "fullscreen_off": "Plein ecran : non   (F11)",
     "alloy_balance": "Meta-alliage : {alloys}",
-    "language": "Langue : {name}"
+    "language": "Langue : {name}",
+    "music": "Musique : {pct} %"
   },
 
   "ships": {

@@ -24,7 +24,7 @@ from settings.ui import (
     C_NEON_RED, C_PLAYERS, C_THARG, C_THARG_DARK, FPS, HEIGHT, LEVEL_LOOKS,
     WEB, WIDTH,
 )
-from maelstrom import bugform, i18n, screen
+from maelstrom import audio, bugform, i18n, screen
 from maelstrom.backdrop import Backdrop
 from maelstrom.neon import blit_glow, draw_bar, draw_sun, neon_polygon
 from maelstrom.player import COCKPIT, HULL_SHAPE, SHIP_SHAPES
@@ -45,6 +45,7 @@ def init():
     global _bug
     i18n.set_language(i18n.detect())
     screen.init()
+    audio.init()
     _bug = bugform.BugForm()     # built after the language and fonts are ready
 
 
@@ -312,6 +313,7 @@ async def _confirm_quit(surf, under):
 
 async def home():
     """Returns "campaign", "coop", "hangar", "options" or "quit"."""
+    audio.music("title")
     surf = screen.SCREEN = make_screen()
     pygame.display.set_caption(i18n.window_caption())
     pygame.display.set_icon(screen.ICON)
@@ -429,6 +431,7 @@ def _ship_panel(surf, rect, key, selected, mouse):
 async def ships():
     """Pick the starting hull (also the one flown in co-op). Returns "start",
     "menu" or "quit"; the choice is written to the meta on confirm."""
+    audio.music("title")
     surf = screen.SCREEN = make_screen()
     meta = read_meta()
     selected = meta["ship"] if meta["ship"] in SHIP_ORDER else SHIP_ORDER[0]
@@ -493,6 +496,7 @@ async def ships():
 
 async def sectors():
     """Returns the index of the sector chosen, "menu" or "quit"."""
+    audio.music("title")
     surf = screen.SCREEN = make_screen()
     meta = read_meta()
     w, h = 214, 318
@@ -565,6 +569,7 @@ async def sectors():
 
 async def hangar():
     """Permanent upgrades. Returns "menu" or "quit"."""
+    audio.music("hangar")
     surf = screen.SCREEN = make_screen()
     meta = read_meta()
     keys = list(HANGAR)
@@ -644,12 +649,14 @@ async def hangar():
 # ----------------------------------------------------------------------
 
 async def options():
-    """Fullscreen and language. Returns "menu" or "quit"."""
+    """Fullscreen, language and music volume. Returns "menu" or "quit"."""
+    audio.music("title")
     surf = screen.SCREEN = make_screen()
     cx = WIDTH // 2
     full = Button(cx - BTN_W // 2, 190, BTN_W, BTN_H, "", C_NEON_CYAN)
     lang = Button(cx - BTN_W // 2, 246, BTN_W, BTN_H, "", C_NEON_CYAN)
-    back = Button(cx - BTN_W // 2, 302, BTN_W, BTN_H, "")
+    vol = Button(cx - BTN_W // 2, 302, BTN_W, BTN_H, "", C_NEON_CYAN)
+    back = Button(cx - BTN_W // 2, 358, BTN_W, BTN_H, "")
 
     def cycle_language():
         """Next installed language, remembered for the next launches."""
@@ -672,6 +679,8 @@ async def options():
                     toggle_fullscreen()
                 elif lang.click(e.pos):
                     cycle_language()
+                elif vol.click(e.pos):
+                    audio.next_volume()
                 elif back.click(e.pos):
                     return "menu"
         # read again on every frame: F11 and the language button change these
@@ -679,12 +688,14 @@ async def options():
         full.text = i18n.t("menu.fullscreen_on") if is_full else i18n.t("menu.fullscreen_off")
         full.enabled = not WEB
         lang.text = i18n.t("menu.language", name=i18n.language_name())
+        vol.text = i18n.t("menu.music", pct=round(audio.volume() * 100))
         back.text = i18n.t("menu.btn_back")
         _background(surf, "pleiades", dt, 170)
         _title(surf, i18n.t("menu.options_title"))
         mouse = pygame.mouse.get_pos()
         full.draw(surf, mouse)
         lang.draw(surf, mouse)
+        vol.draw(surf, mouse)
         back.draw(surf, mouse)
         _foot(surf)
         _bug_overlay(surf, dt)

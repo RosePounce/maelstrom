@@ -32,7 +32,7 @@ from settings.ui import (
     BANNER_TIME, C_NEON_CYAN, C_NEON_RED, C_PLAYERS, C_TEXT_GRAY, HEIGHT,
     SHAKE_DECAY, WIDTH,
 )
-from maelstrom import i18n, screen
+from maelstrom import audio, i18n, screen
 from maelstrom.backdrop import Backdrop
 from maelstrom.effects import Particle
 from maelstrom.enemies import Enemy, Interceptor
@@ -127,6 +127,7 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
         self.pointer = None
         self.drag = self.ship.drag       # the local controls push this one
         self.banner = None
+        audio.restart()                  # every attempt starts its music over
         if self.role == "client":        # the host decides, and announces
             return
         if from_boss and self.checkpoint:
@@ -158,6 +159,22 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
 
     def progress(self):
         return min(1.0, self.t / self.level["duration"])
+
+    def music_track(self):
+        """The key of `MUSIC` this phase calls for (None: fade out). Asked on
+        every frame by loop.py; `audio.music()` ignores a repeat."""
+        phase = self.phase
+        if self.paused:
+            return "pause"               # the sector track resumes after it
+        if phase == "play":
+            return self.level["key"]
+        if phase == "boss":
+            return self.level["boss"]
+        if phase == "boss_dying":
+            return None                  # fades out under the explosions
+        if phase == "cleared" and self.level_index + 1 == len(LEVELS):
+            return "credits"
+        return phase                     # "warning", "dead", "cleared"
 
     def state_data(self):
         """A snapshot of the attempt, for the bug reports (`state.json`).
