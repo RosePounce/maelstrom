@@ -39,19 +39,31 @@ sinon (la phase reste alors silencieuse).
 | `credits`   | `credits`               | `cleared` du dernier secteur         | piste  | Fait    |
 | `pause`     | `pause`                 | menu pause (solo)                    | boucle | Fait    |
 | `hangar`    | `hangar`                | hangar                               | boucle | Fait    |
-| `merope`    | `sector_1`              | `play`, secteur 1                    | boucle | A faire |
-| `oracle`    | `sector_2`              | `play`, secteur 2                    | boucle | A faire |
-| `pleiades`  | `sector_3`              | `play`, secteur 3                    | boucle | A faire |
+| `merope`    | `sector_1`              | `play`, secteur 1                    | boucle | Fait    |
+| `oracle`    | `sector_2`              | `play`, secteur 2                    | boucle | Fait    |
+| `pleiades`  | `sector_3`              | `play`, secteur 3                    | boucle | Fait    |
 | `maelstrom` | `sector_4`              | `play`, secteur 4                    | boucle | Fait    |
-| `warning`   | `warning`               | `warning` (Intercepteur en approche) | jingle | A faire |
+| `warning`   | `warning`               | `warning` (Intercepteur en approche) | jingle | Fait    |
 | `cyclops`   | `boss_cyclops_basilisk` | `boss`, Cyclope                      | boucle | Fait    |
 | `basilisk`  | `boss_cyclops_basilisk` | `boss`, Basilic                      | boucle | Fait    |
 | `medusa`    | `boss_medusa`           | `boss`, Meduse                       | boucle | Fait    |
 | `hydra`     | `boss_hydra`            | `boss`, Hydre                        | boucle | Fait    |
-| `dead`      | `dead`                  | `dead`                               | jingle | A faire |
+| `dead`      | `dead`                  | `dead`                               | jingle | Fait    |
 | `cleared`   | `cleared`               | `cleared` (secteur libere)           | jingle | A faire |
 
-En reserve, non branches : `boss_titans`, `sector_4_alt`.
+En reserve, non branches : `boss_titans`, et la seconde version Suno de
+plusieurs pistes (`sector_1_alt`, `sector_2_alt`, `sector_3_alt`,
+`sector_4_alt`, `warning_alt`, `dead_alt`). Pour en changer, echanger les
+noms de fichiers ou pointer la cle de `MUSIC` vers le `_alt`.
+
+Les sources sont dans `docs/music/` (export Suno en `.mp3`, numerote dans
+l'ordre de generation) ; chaque `.ogg` en est la conversion integrale
+(Vorbis, 48 kHz, 192 kb/s) :
+
+```bash
+ffmpeg -i docs/music/Maelstrom_07_Merope_01.mp3 -map 0:a -c:a libvorbis \
+       -b:a 192k -ar 48000 assets/music/sector_1.ogg
+```
 
 Pendant `boss_dying`, la musique de boss s'eteint en fondu sous les
 explosions (`MUSIC_FADE_OUT`). En pause, la piste `pause` remplace celle du

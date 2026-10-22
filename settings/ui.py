@@ -184,16 +184,16 @@ MUSIC = {
     "credits":   ("credits", False),
     "pause":     ("pause", True),
     "hangar":    ("hangar", True),
-    "merope":    ("sector_1", True),            # not made yet
-    "oracle":    ("sector_2", True),            # not made yet
-    "pleiades":  ("sector_3", True),            # not made yet
+    "merope":    ("sector_1", True),
+    "oracle":    ("sector_2", True),
+    "pleiades":  ("sector_3", True),
     "maelstrom": ("sector_4", True),
-    "warning":   ("warning", False),            # not made yet
+    "warning":   ("warning", False),
     "cyclops":   ("boss_cyclops_basilisk", True),
     "basilisk":  ("boss_cyclops_basilisk", True),
     "medusa":    ("boss_medusa", True),
     "hydra":     ("boss_hydra", True),
-    "dead":      ("dead", False),               # not made yet
+    "dead":      ("dead", False),
     "cleared":   ("cleared", False),            # not made yet
 }
 MUSIC_VOLUMES = (0.0, 0.25, 0.5, 0.75, 1.0)   # the steps of the options button
