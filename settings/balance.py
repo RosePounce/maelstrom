@@ -153,23 +153,23 @@ def hangar_cost(key, level):
 # hp, collision radius, speed, contact damage, meta-alloy, drop chance;
 # `fire` = seconds between two shots, `shot_speed` of those shots.
 ENEMIES = {
-    "swarm":     {"hp": 5, "radius": 9, "speed": 250, "contact": 12,
+    "swarm":     {"hp": 5, "radius": 9, "speed": 250, "contact": 14,
                   "alloy": 1, "drop": 0.05},
     "scout":     {"hp": 16, "radius": 14, "speed": 140, "contact": 18,
-                  "alloy": 2, "drop": 0.22, "fire": 1.4, "shot_speed": 270},
-    "marauder":  {"hp": 26, "radius": 16, "speed": 170, "dash": 600,
+                  "alloy": 2, "drop": 0.22, "fire": 1.25, "shot_speed": 300},
+    "marauder":  {"hp": 26, "radius": 16, "speed": 170, "dash": 680,
                   "contact": 26, "alloy": 3, "drop": 0.30},
     "berserker": {"hp": 70, "radius": 21, "speed": 120, "contact": 30,
-                  "alloy": 6, "drop": 0.65, "fire": 1.1, "shot_speed": 240,
+                  "alloy": 6, "drop": 0.65, "fire": 0.95, "shot_speed": 285,
                   "stay": 11.0},
     "mine":      {"hp": 10, "radius": 12, "speed": 0, "contact": 20,
                   "alloy": 1, "drop": 0.0},
     "asteroid":  {"hp": 40, "radius": 26, "speed": 0, "contact": 25,
                   "alloy": 0, "drop": 0.12},
 }
-ENEMY_SHOT_DAMAGE = 14
-LEVEL_HP_SCALE = 0.18          # enemy hp +18 % per sector
-LEVEL_DAMAGE_SCALE = 0.15      # enemy damage +15 % per sector
+ENEMY_SHOT_DAMAGE = 18
+LEVEL_HP_SCALE = 0.20          # enemy hp +20 % per sector
+LEVEL_DAMAGE_SCALE = 0.18      # enemy damage +18 % per sector
 CONTACT_SELF_DAMAGE = 30       # what a ship that rams the player takes
 # A caustic mine bursts into a cloud: it stains the hull while inside it
 CAUSTIC_CLOUD = {"radius": 62, "time": 3.2, "stain": 1.5}
@@ -195,13 +195,13 @@ CAUSTIC_CLOUD = {"radius": 62, "time": 3.2, "stain": 1.5}
 # pods' health times `form_hp` and its attacks `form_period` as fast. Only the
 # last form's death wins the fight.
 BOSSES = {
-    "cyclops":  {"hearts": 2, "heart_hp": 600, "radius": 56, "period": 1.4,
+    "cyclops":  {"hearts": 2, "heart_hp": 650, "radius": 56, "period": 1.3,
                  "patterns": ("aimed", "radial", "aimed", "swarm")},
-    "basilisk": {"hearts": 3, "heart_hp": 850, "radius": 60, "period": 1.25,
+    "basilisk": {"hearts": 3, "heart_hp": 950, "radius": 60, "period": 1.15,
                  "patterns": ("aimed", "radial", "swarm", "spiral")},
-    "medusa":   {"hearts": 4, "heart_hp": 1100, "radius": 64, "period": 1.1,
+    "medusa":   {"hearts": 4, "heart_hp": 1350, "radius": 64, "period": 1.0,
                  "patterns": ("radial", "spiral", "mines", "aimed", "swarm")},
-    "hydra":    {"hearts": 5, "heart_hp": 1350, "radius": 70, "period": 1.0,
+    "hydra":    {"hearts": 5, "heart_hp": 1650, "radius": 70, "period": 0.92,
                  "patterns": ("spiral", "aimed", "radial", "swarm", "mines",
                               "spiral")},
     "titan":    {"hearts": 6, "heart_hp": 1100, "radius": 118, "period": 0.9,
@@ -210,11 +210,11 @@ BOSSES = {
                               "spiral", "sweep", "beam", "swarm")},
 }
 BOSS_ARMORED_TIME = 5.0
-BOSS_EXPOSED_TIME = 6.5
-BOSS_ARMOR = 0.12
+BOSS_EXPOSED_TIME = 6.0        # a shorter opening: the player must make it count
+BOSS_ARMOR = 0.09             # less chip damage gets through the closed petals
 BOSS_STAGGER = 2.2
-BOSS_CONTACT = 40
-BOSS_SHOT_SPEED = 240
+BOSS_CONTACT = 46
+BOSS_SHOT_SPEED = 260
 BOSS_ALLOY_PER_HEART = 8
 BOSS_ALLOY = 30
 BOSS_SHUTDOWN = 2.0            # shutdown wave of a destroyed heart (dampers apply)

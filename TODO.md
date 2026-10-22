@@ -82,6 +82,23 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
 
 ## Fait
 
+- [x] **Passe d'equilibrage « le reste du jeu »** (retour de jeu) — une fois le
+  Titan en place, les quatre Intercepteurs et les vagues paraissaient fades a
+  cote (hangar au max = tout fond). Durcissement direct dans `balance.py` :
+  - *Intercepteurs* (chirurgical, le Titan n'y touche pas) : PV par coeur
+    nettement releves et cadence resserree (Cyclope 2x650, Basilic 3x950,
+    Meduse 4x1350, Hydre 5x1650), pour une montee lisse 1300 -> 2850 -> 5400
+    -> 8250 avant le Titan.
+  - *Fenetre et globals* : `BOSS_EXPOSED_TIME` 6.5 -> 6.0, `BOSS_ARMOR` 0.12 ->
+    0.09 (moins de grignotage petales fermes), `BOSS_SHOT_SPEED` 240 -> 260,
+    `BOSS_CONTACT` 40 -> 46 (effleure aussi le Titan, volontairement leger).
+  - *Ennemis* : `ENEMY_SHOT_DAMAGE` 14 -> 18, `LEVEL_HP_SCALE` 0.18 -> 0.20,
+    `LEVEL_DAMAGE_SCALE` 0.15 -> 0.18 ; Scout et Berserker tirent plus vite et
+    plus fort, dash du Maraudeur releve.
+  - *Reste ouvert* : l'equilibrage « vrai » reste le **Mode de difficulte** et
+    les **Loots et ameliorations** (ci-dessus), qui font croitre defi et
+    puissance ensemble ; cette passe ne fait que relever la base.
+
 - [x] (P1) **Boss final Titan** — le climax de la campagne, apres l'Hydre. Un
   **5e secteur cache** (absent du choix des secteurs) s'enchaine tout seul une
   fois le Maelstrom libere ; la victoire tombe desormais a la mort du Titan.
