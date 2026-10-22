@@ -6,6 +6,7 @@ screen shake:
   top centre     sector progress, or the Interceptor's heart;
   top right      meta-alloy of the attempt, Pause button;
   bottom left    hull, shield, weapon and level, AX missiles;
+  bottom centre  co-op: the partner's hull and shield;
   bottom right   the AX button (for a finger).
 """
 
@@ -44,7 +45,9 @@ class Hud:
     def open_overlay(self, kind):
         """Builds the buttons of an overlay as (action, Button) pairs. The
         first one is also the Enter key."""
-        if kind == "pause":
+        if self.coop:
+            actions = self.coop_actions(kind)
+        elif kind == "pause":
             actions = [("resume", i18n.t("pause.btn_resume")),
                        ("restart", i18n.t("pause.btn_restart"))]
             if bugreport.ENABLED:        # no report files in a browser
@@ -64,6 +67,29 @@ class Hud:
                            ("menu", i18n.t("pause.btn_menu"))]
             else:
                 actions = [("menu", i18n.t("pause.btn_menu"))]
+        self.place_overlay(kind, actions)
+
+    def coop_actions(self, kind):
+        """Co-op: no hangar and no restart (the session goes on), the
+        client leaves or waits for the host."""
+        leave = ("menu", i18n.t("coop.btn_leave"))
+        if kind == "pause":
+            actions = [("resume", i18n.t("pause.btn_resume"))]
+            if bugreport.ENABLED:
+                actions.append(("bug", i18n.t("pause.btn_report_bug")))
+            return actions + [leave]
+        if kind == "lost" or self.role == "client":
+            return [leave]
+        if kind == "dead":
+            if self.checkpoint:
+                return [("retry_boss", i18n.t("dead.btn_retry_boss")),
+                        ("retry", i18n.t("dead.btn_retry_start")), leave]
+            return [("retry", i18n.t("dead.btn_retry")), leave]
+        if self.level_index + 1 < len(LEVELS):
+            return [("next", i18n.t("clear.btn_next")), leave]
+        return [leave]
+
+    def place_overlay(self, kind, actions):
         top = HEIGHT - 40 - len(actions) * OVERLAY_STEP
         buttons = stack_buttons([label for _, label in actions], WIDTH // 2, top,
                                 OVERLAY_BTN_W, OVERLAY_BTN_H, OVERLAY_STEP)
@@ -86,6 +112,12 @@ class Hud:
         if self.overlay == "pause":
             title, color = i18n.t("pause.title"), C_NEON_PINK
             lines = [i18n.t("hud.sector", n=self.level_index + 1, name=i18n.level_name(key))]
+            if self.coop:
+                lines.append(i18n.t("coop.pause_running"))
+        elif self.overlay == "lost":
+            title, color = i18n.t("coop.lost_title"), C_NEON_RED
+            lines = [i18n.t("coop.lost_sub"),
+                     i18n.t("dead.alloys", alloys=self.attempt_alloys)]
         elif self.overlay == "dead":
             title, color = i18n.t("dead.title"), C_NEON_RED
             if self.boss is not None and self.phase_t >= 0:
@@ -95,7 +127,8 @@ class Hud:
             else:
                 lines.append(i18n.t("dead.progress", pct=self.progress() * 100))
             lines.append(i18n.t("dead.alloys", alloys=self.attempt_alloys))
-            lines.append(i18n.t("dead.deaths", deaths=self.meta["deaths"][self.level_index]))
+            if not self.coop:
+                lines.append(i18n.t("dead.deaths", deaths=self.meta["deaths"][self.level_index]))
         else:
             last = self.level_index + 1 >= len(LEVELS)
             title, color = ((i18n.t("victory.title"), C_THARG) if last
@@ -105,7 +138,11 @@ class Hud:
             lines.append(i18n.t("clear.time", time=self.elapsed))
             lines.append(i18n.t("clear.kills", kills=self.kills))
             lines.append(i18n.t("dead.alloys", alloys=self.attempt_alloys))
-            lines.append(i18n.t("clear.deaths", deaths=self.meta["deaths"][self.level_index]))
+            if not self.coop:
+                lines.append(i18n.t("clear.deaths", deaths=self.meta["deaths"][self.level_index]))
+
+        if self.role == "client" and self.overlay in ("dead", "cleared"):
+            lines.append(i18n.t("coop.wait_host"))
 
         font = screen.FONT_HUGE if screen.FONT_HUGE.size(title)[0] < WIDTH - 60 else screen.FONT_BIG
         img = font.render(title, True, color)
@@ -221,6 +258,8 @@ class Hud:
             pygame.draw.rect(surf, col, (bx + 2 + i * 14, by + 56, 10, 6))
         m = small.render(i18n.t("hud.missiles", count=ship.missiles), True, C_MISSILE)
         surf.blit(m, (bx + 90, by + 50))
+        if self.coop:
+            self._draw_partner(surf, bx + HUD_BAR_W + 110, by)
 
         # bottom right: AX button, round
         r = self.btn_ax.rect
@@ -231,6 +270,38 @@ class Hud:
         pygame.draw.circle(surf, col, r.center, r.w // 2, 2)
         t = small.render(i18n.t("hud.btn_ax"), True, col)
         surf.blit(t, t.get_rect(center=r.center))
+
+    def _draw_partner(self, surf, bx, by):
+        """Co-op: the other ship's name, hull and shield (or its return
+        countdown), next to the local gauges."""
+        i = 1 - self.me
+        mate = self.ships[i]
+        small, tiny = screen.FONT_SMALL, screen.FONT_TINY
+        w = 150
+        panel = pygame.Surface((w + 12, 50), pygame.SRCALPHA)
+        panel.fill((*C_PANEL, 150))
+        surf.blit(panel, (bx - 6, by + 22))
+        name = i18n.t("coop.partner", n=i + 1, ship=i18n.ship_name(mate.ship_key))
+        surf.blit(tiny.render(name, True, mate.color), (bx, by + 26))
+        if mate.down:
+            t = small.render(i18n.t("coop.partner_down", time=max(0.0, mate.respawn_t)),
+                             True, C_NEON_RED)
+            surf.blit(t, (bx, by + 44))
+            return
+        draw_bar(surf, bx, by + 44, w, 8, mate.hull / mate.hull_max,
+                 C_HULL_LOW if mate.hull < mate.hull_max * 0.3 else C_HULL, C_HULL_BG)
+        draw_bar(surf, bx, by + 57, w, 8, mate.shield / mate.shield_max,
+                 C_SHIELD, C_SHIELD_BG)
+
+    def draw_tags(self, surf):
+        """Co-op: "P1" / "P2" over each ship, so that each player finds their own."""
+        if not self.coop:
+            return
+        for i, ship in enumerate(self.ships):
+            if ship.down:
+                continue
+            t = screen.FONT_TINY.render(i18n.t("coop.tag", n=i + 1), True, ship.color)
+            surf.blit(t, t.get_rect(center=(int(ship.x), int(ship.y) - 26)))
 
     def draw_jamming(self, surf):
         """Jamming: torn lines across the picture."""

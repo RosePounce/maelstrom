@@ -182,6 +182,12 @@
     "btn_cancel": "Cancel",
     "count": "{count}/{max}",
     "saved": "Report saved: saves/bugs/{folder}",
-    "failed": "Report not saved (disk refused)"
+    "failed": "Report not saved (disk refused)",
+    "send_label": "Send the report",
+    "offline": "Saved to disk (no relay configured).",
+    "sending": "Sending the report...",
+    "sent": "Report sent. Thank you!",
+    "queued": "No connection: the report will be sent on the next launch.",
+    "send_failed": "The report could not be sent (kept on disk)."
   }
 }

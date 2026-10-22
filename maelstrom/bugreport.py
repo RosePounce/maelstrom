@@ -41,6 +41,11 @@ LOG_TAIL_LINES = 200
 DESCRIPTION_MAX_LEN = 200     # the form is a single line
 
 
+def report_dir():
+    """Where reports, the outbox and send.log live (`maelstrom/bugsend.py`)."""
+    return REPORT_DIR
+
+
 def git_commit():
     """Short hash of the checked-out commit (with "+dirty" if the project
     folder has local changes), or "unknown" outside a git checkout."""
@@ -110,6 +115,7 @@ def game_context(game):
         level = game.level
         rows += [
             ("sector", f"{game.level_index + 1} ({level['key']})"),
+            ("mode", game.role + (f", local ship {game.me + 1}" if game.coop else "")),
             ("phase", f"{game.phase} ({game.phase_t:.1f} s)"
                       + (f", overlay {game.overlay}" if game.overlay else "")),
             ("sector clock", f"{game.t:.1f} / {level['duration']} s "

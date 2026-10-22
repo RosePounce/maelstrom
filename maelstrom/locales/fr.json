@@ -8,6 +8,8 @@
     "card_campaign_sub": "Quatre secteurs, quatre Intercepteurs. Mourir, apprendre, recommencer.",
     "card_hangar": "Hangar",
     "card_hangar_sub": "Ameliorer le vaisseau avec le meta-alliage recupere.",
+    "card_coop": "Coop LAN",
+    "card_coop_sub": "Deux chasseurs sur le reseau local. L'hote choisit le secteur.",
     "btn_options": "Options",
     "btn_quit": "Quitter",
     "btn_back": "Retour",
@@ -183,6 +185,48 @@
     "btn_cancel": "Annuler",
     "count": "{count}/{max}",
     "saved": "Rapport enregistre : saves/bugs/{folder}",
-    "failed": "Rapport non enregistre (disque refuse)"
+    "failed": "Rapport non enregistre (disque refuse)",
+    "send_label": "Envoyer le rapport",
+    "offline": "Enregistre sur le disque (aucun relais configure).",
+    "sending": "Envoi du rapport...",
+    "sent": "Rapport envoye. Merci !",
+    "queued": "Pas de connexion : le rapport sera envoye au prochain lancement.",
+    "send_failed": "Le rapport n'a pas pu etre envoye (conserve sur le disque)."
+  },
+
+  "lan": {
+    "default_host_name": "Partie de {host}"
+  },
+
+  "coop": {
+    "title": "COOP LAN",
+    "subtitle": "Deux chasseurs contre les Thargoides, sur le reseau local",
+    "btn_host": "Heberger une partie",
+    "host_help": "Votre partenaire vous rejoint, puis vous choisissez le secteur parmi ceux que vous avez liberes. Chacun vole avec son vaisseau et son hangar.",
+    "found": "Parties sur le reseau",
+    "found_line": "{name}   {ip}",
+    "other_version": "autre version",
+    "none_found": "Aucune partie annoncee pour l'instant...",
+    "address": "Ou l'adresse IP de l'hote :",
+    "btn_join": "Rejoindre",
+    "hosting": "En attente d'un partenaire",
+    "hosting_ip": "Votre adresse : {ip}   (port {port})",
+    "connecting": "Connexion a {ip}",
+    "joined": "Connecte a {name}",
+    "wait_sector": "L'hote choisit le secteur...",
+    "error_connect": "Connexion impossible : {error}",
+    "error_port": "Impossible d'heberger : {error}",
+    "error_version": "Versions differentes : mettez le jeu a jour des deux cotes.",
+    "error_lost": "La liaison a ete coupee.",
+    "btn_leave": "Quitter la partie",
+    "pause_running": "La partie continue pendant la pause",
+    "wait_host": "En attente de l'hote...",
+    "lost_title": "LIAISON PERDUE",
+    "lost_sub": "Le partenaire a quitte la partie.",
+    "tag": "J{n}",
+    "partner": "J{n}  {ship}",
+    "partner_down": "Abattu : retour {time:.0f} s",
+    "down": "J{n} ABATTU",
+    "revived": "J{n} de retour"
   }
 }

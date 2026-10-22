@@ -19,6 +19,11 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     pygbag (audio navigateur, prechargement, mixer en async, deblocage au
     premier clic) ; reglage volume / coupure dans les Options (memorise comme la
     langue) ; mise en sourdine quand l'onglet ou la fenetre perd le focus.
+  - *Retour de jeu* (rapport `20261021-124702`, fait sur la branche
+    `feature/music`) : « il faut une continuite entre le son du niveau et celui
+    du boss ». Pas de coupure seche a l'arrivee de l'Intercepteur : fondu
+    enchaine, ou meme tempo / tonalite pour que la piste du boss prolonge celle
+    du secteur.
 
 - [ ] (P2) **Succes / achievements par secteur** — des defis debloquables,
   plusieurs par secteur. Exemples de criteres : liberer sans mourir, sans etre
@@ -29,23 +34,6 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     (`game.py` / `combat.py`, a la cle d'un secteur) ; affichage (pastilles sur
     les cartes de secteur, bilan a la victoire, ou un ecran dedie) ; noms et
     descriptions dans les locales ; eventuelle petite recompense en meta-alliage.
-
-- [ ] (P3) **Multijoueur a 2 en LAN** (le plus gros chantier) — sur le modele de
-  purr-tage. A priori **cooperatif** : deux chasseurs contre les Thargoides
-  (versus a decider). Reutiliser le transport de purr-tage (`net.py` : TCP +
-  annonce LAN en UDP) et son `lockstep.py`.
-  - *Gros point dur* : purr-tage est **deterministe** (lockstep, aucun etat ne
-    traverse le reseau, pas de RNG global, pas de `hypot`/trigo, entites
-    renumerotees). Maelstrom ne l'est **pas** aujourd'hui : les vagues sont deja
-    semees par secteur (bon depart), mais les butins, les particules et la gigue
-    des ennemis passent par le `random` global. Un vrai lockstep demande de
-    purger ce RNG (RNG seme partage), de fixer le pas de simulation et de
-    bannir le non-deterministe. Alternative plus simple mais qui s'ecarte de
-    purr-tage : un hote autoritaire qui diffuse l'etat.
-  - *A definir* : co-op vs versus ; ecran de lobby / decouverte LAN dans
-    `menu.py` ; entrees serialisees en ordres ; **desktop seulement** (le
-    reseau LAN n'existe pas dans le navigateur pygbag) ; comment la meta, le
-    hangar et le choix du vaisseau se partagent a deux.
 
 - [ ] (P2) **Mode de difficulte** — quatre crans, nommes comme une echelle de
   menace thargoide : **Scout** (le plus facile) -> **Interceptor** -> **Hunter**
@@ -77,21 +65,105 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     victoire dans les locales (mettre a jour `victory.sub`) ; lien avec le cran
     de difficulte « Titan ».
 
-- [ ] (P1) **F8 partout** — pouvoir signaler un bug (F8) a n'importe quelle etape,
-  y compris dans les menus (accueil, choix du vaisseau, secteurs, hangar, options),
-  pas seulement en partie. Aujourd'hui F8 n'ouvre le formulaire que dans un secteur
-  (`loop.play`) ; le filet anti-plantage couvre deja les menus, mais pas le
-  signalement manuel.
-  - *A definir* : sortir le formulaire de `session/bug_form.py` pour qu'un ecran
-    de menu (sans instance `Game`) puisse l'ouvrir ; variante de
-    `bugreport.write_report` sans partie (ecran + description + quel ecran + meta,
-    comme le fait deja `report_crash` avec « game: none (menus) ») ; chaque boucle
-    d'ecran de `menu.py` gere F8 et fige l'ecran pendant la saisie ; **bureau
-    seulement** (comme l'existant).
+
+- [ ] (P1) **Boss : nouveaux motifs et petales a cibler** (retour de jeu,
+  rapports `20261021-163941` « changer le paterne des boss » et
+  `20261021-164230` « utiliser le paterne des thargo d'elite avec les petals a
+  cibler ») — aujourd'hui les quatre Intercepteurs se jouent pareil : une
+  alternance minutee blinde / expose (`BOSS_ARMORED_TIME`,
+  `BOSS_EXPOSED_TIME`) et une rotation de tirs (`aimed`, `radial`, `swarm`).
+  - *Petales a cibler* (comme les Thargoides d'elite d'Elite Dangerous) : les
+    petales deviennent des cibles a detruire pour ouvrir le coeur, au lieu d'un
+    minuteur ; un coeur detruit referme la rosace avec de nouveaux petales.
+  - *Motifs* : un jeu de motifs propre a chaque Intercepteur (Cyclops, Basilisk,
+    Medusa, Hydra), qui change d'un coeur a l'autre.
+  - *A definir* : petales avec leurs PV dans `Interceptor` (`enemies.py`) et
+    collisions par petale dans `combat.py` ; nombre de petales et PV dans
+    `BOSSES` (`balance.py`) ; lecture claire a l'ecran (petale touche, petale
+    detruit) ; lien avec le **Titan** et ses pods rouges, qui suivent la meme
+    logique de points faibles.
+
+- [ ] (P2) **Campagne etendue sur une carte de la Voie lactee** (retour de jeu,
+  rapport `20261021-164337`) — « plus de niveaux : utiliser la carte de la voie
+  lactee decoupee par secteur x N niveaux pour repousser l'invasion des xeno ».
+  Aujourd'hui, 4 secteurs en ligne (`LEVELS`).
+  - *A definir* : ecran de carte galactique a la place de la liste des secteurs
+    (`menu.sectors()`) ; regions (Pleiades, Merope, Oracle...) contenant chacune
+    N niveaux et un boss ; progression de l'invasion sur la carte (zones
+    reprises / perdues) ; stockage dans la meta (`unlocked`, `best`, `deaths`
+    passent par region, montee de `META_VERSION`) ; generation des vagues pour
+    beaucoup plus de niveaux sans tout ecrire a la main.
+
+- [ ] (P2) **Loots et ameliorations** (retour de jeu, rapport `20261021-164639`) —
+  « avoir des loots et des ameliorations ». Constat dans `saves/meta.json` : en
+  une session, le hangar est presque au maximum (coque, cadence, degats,
+  bouclier a 5), il reste 896 de meta-alliage sans rien a acheter, et une seule
+  mort sur la campagne. La progression s'epuise trop vite.
+  - *A definir* : butins varies laches par les ennemis et les boss (pieces,
+    modules) en plus du meta-alliage ; nouvelles ameliorations au hangar, ou des
+    paliers au-dela des `max` actuels de `HANGAR` ; courbe de couts
+    (`HANGAR_GROWTH`) ; lien avec le **Mode de difficulte**, qui donnerait une
+    raison de rejouer avec un hangar plein.
+
+- [ ] (P3) **Sites Guardians : technologies et evolution du vaisseau** (retour de
+  jeu, rapport `20261021-164701`) — « ajouter des donjons guardians pour recup
+  des techno et faire evoluer le ship dans le hangar ». Des niveaux a part,
+  dans les ruines Guardians, ou l'on recupere des technologies.
+  - *A definir* : forme du niveau (exploration plutot que defilement, gardiens
+    sentinelles) ; technologies obtenues (nouvelles armes, modules) qui font
+    evoluer le vaisseau au hangar au-dela des ameliorations chiffrees ; place sur
+    la **carte de la Voie lactee** ; suite naturelle de **Loots et
+    ameliorations**.
 
 ## En cours
 
+- [ ] (P3) **Multijoueur a 2 en LAN** — En branche `feature/coop-lan`.
+  **Cooperatif**, desktop seulement (carte « Coop LAN » de l'accueil, absente
+  sous pygbag). Choix faits :
+  - **Hote autoritaire** plutot que lockstep : l'hote simule comme en solo avec
+    un 2e vaisseau pilote par le reseau, et envoie un instantane JSON par image
+    (`session/coop.py`) ; le client envoie ses entrees, dessine et rejoue les
+    effets (`Combat.emit`). Aucune purge du RNG necessaire. Transport repris de
+    purr-tage (`maelstrom/net.py` : TCP 50517 + annonce UDP 50518).
+  - **Salon** `menu.lobby()` : heberger, liste des parties annoncees, saisie
+    d'IP ; poignee de main `hello` / `welcome` avec numero de protocole.
+  - **Regles** : vaisseau abattu de retour apres `COOP_RESPAWN` s, essai perdu
+    quand les deux sont abattus, Thargoides visant le plus proche, pause qui ne
+    fige rien, seul l'hote decide apres une mort ou une victoire.
+  - **Meta** : chacun son vaisseau, son hangar, ses equipements ; meta-alliage
+    de l'equipe verse aux deux ; records et deblocages solo intouches ; l'hote
+    choisit parmi ses secteurs liberes.
+  - *Reste a faire* : traduction anglaise des nouvelles cles (`menu.card_coop*`,
+    `lan.*`, `coop.*`, pour l'instant en repli sur le francais) ; essai reel sur
+    deux machines (pare-feu, Windows <-> Linux) ; eventuellement interpolation
+    cote client si le reseau saccade.
+
 ## Fait
+
+- [x] (P1) **F8 partout** — le formulaire de rapport s'ouvre a F8 sur chaque
+  ecran hors secteur (accueil, vaisseau, secteurs, hangar, options, salon),
+  plus seulement en partie. Le formulaire est sorti dans `maelstrom/bugform.py`
+  (classe `BugForm`, utilisable sans instance `Game`) ; `session/bug_form.py`
+  n'en est plus que l'adaptateur du jeu (qui repasse par la pause a la
+  fermeture). Chaque boucle de `menu.py` appelle `_bug_intercept` / `_bug_overlay` ;
+  le rapport note l'ecran d'ou il part (`screen: <nom>`). Bureau seulement.
+
+- [x] (P1) **Remontee des bugs vers un relais Cloudflare** — sur le modele de
+  purr-tage : `maelstrom/bugsend.py` (envoi HTTPS en tache de fond, boite
+  `saves/bugs/outbox/` rejouee au lancement, `send.log`, `certifi`), une case
+  « Envoyer le rapport » dans le formulaire (consentement memorise dans
+  `prefs.json`), `BUG_REPORT_URL` dans `settings/` (depassable par
+  `MAELSTROM_REPORT_URL`, actif seulement une fois empaquete). Le relais est un
+  Cloudflare Worker dans `relay/` (Discord), a deployer sur le compte
+  RosePounce. Bureau seulement.
+
+- [x] **Ecran du choix du vaisseau : mise en page** (retour de jeu, rapport
+  `20261021-163755`) — le libelle « Lancer la campagne (Entree) » debordait de son
+  bouton (298 px pour 220) ; le sous-titre passait sous les cartes ; la silhouette
+  du Type-10 sortait de sa carte et du nom ; « Mamba » etait ecrit plus gros que
+  les autres noms ; les boutons recouvraient la ligne de version. Cartes
+  descendues sous le sous-titre, silhouettes mises a l'echelle de leur cadre
+  (`_draw_ship_shape`), une seule taille de nom, boutons elargis et remontes.
 
 - [x] (P1) **Choix du vaisseau de depart** — ecran avant la campagne (`menu.ships()`),
   4 chasseurs aux profils distincts : **Krait Mk II** (polyvalent), **Alliance

@@ -1,13 +1,14 @@
 """
-Maelstrom screens outside a sector: home, sectors, hangar, options.
+Maelstrom screens outside a sector: home, sectors, hangar, options, and the
+co-op lobby (desktop only).
 
 The menu borrows from the game its window and fonts (`maelstrom.screen`), its
 colors (`settings.ui`), its neon drawing (`maelstrom.neon`), its scrolling
 backdrop (`maelstrom.backdrop`) and its Button class (`maelstrom.widgets`).
 
 Each screen has its own loop and RETURNS a string (or a sector index)
-instead of exiting on its own: "campaign", "hangar", "options", "menu",
-"quit".
+instead of exiting on its own: "campaign", "coop", "hangar", "options",
+"menu", "quit".
 """
 
 import asyncio
@@ -20,9 +21,10 @@ from settings.balance import HANGAR, LEVELS, SHIP_ORDER, SHIPS, hangar_cost
 from settings.ui import (
     C_ALLOY, C_HEART, C_HULL, C_NEON_CYAN, C_NEON_ORANGE, C_NEON_PINK,
     C_NEON_YELLOW, C_PANEL, C_PANEL_BORDER, C_SHIELD, C_TEXT, C_TEXT_GRAY,
-    C_THARG, C_THARG_DARK, FPS, HEIGHT, LEVEL_LOOKS, WEB, WIDTH,
+    C_NEON_RED, C_PLAYERS, C_THARG, C_THARG_DARK, FPS, HEIGHT, LEVEL_LOOKS,
+    WEB, WIDTH,
 )
-from maelstrom import audio, i18n, screen
+from maelstrom import audio, bugform, i18n, screen
 from maelstrom.backdrop import Backdrop
 from maelstrom.neon import blit_glow, draw_bar, draw_sun, neon_polygon
 from maelstrom.player import COCKPIT, HULL_SHAPE, SHIP_SHAPES
@@ -35,11 +37,40 @@ BTN_W, BTN_H = 300, 44
 MENU_SCROLL = 60                 # the backdrop drifts slowly behind the menus
 
 
+_bug = None                      # the bug report form shared by every screen
+
+
 def init():
     """Prepares the game. To be called first (main.py)."""
+    global _bug
     i18n.set_language(i18n.detect())
     screen.init()
     audio.init()
+    _bug = bugform.BugForm()     # built after the language and fonts are ready
+
+
+def _bug_intercept(e, name):
+    """F8 opens the report form over any menu (desktop; it self-guards on the
+    web). While it is open it takes every key and left click, so the screen
+    underneath cannot navigate. Returns True when the event was consumed."""
+    if _bug.is_open:
+        if e.type == pygame.KEYDOWN:
+            _bug.key(e)
+        elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            _bug.click(e.pos)
+        return e.type != pygame.QUIT      # let QUIT through, swallow the rest
+    if e.type == pygame.KEYDOWN and e.key == pygame.K_F8:
+        _bug.open(screen_name=name, shot=screen.SCREEN.copy())
+        return _bug.is_open
+    return False
+
+
+def _bug_overlay(surf, dt):
+    """Draw the form and its notice, after the screen has drawn itself."""
+    _bug.tick_notice(dt)
+    if _bug.is_open:
+        _bug.draw(surf, dt)
+    _bug.draw_notice(surf)
 
 
 # ----------------------------------------------------------------------
@@ -155,9 +186,9 @@ def _row_rects(count, w, h, top, gap=18):
 #  Card drawings
 # ----------------------------------------------------------------------
 
-def _draw_ship(surf, x, y, scale):
+def _draw_ship(surf, x, y, scale, color=C_NEON_CYAN):
     pts = [(x + px * scale, y + py * scale) for px, py in HULL_SHAPE]
-    neon_polygon(surf, C_NEON_CYAN, pts)
+    neon_polygon(surf, color, pts)
     pygame.draw.polygon(surf, C_NEON_PINK, [(x + px * scale, y + py * scale) for px, py in COCKPIT])
     blit_glow(surf, x - 16 * scale, y, int(14 * scale), C_NEON_PINK, 0.6)
 
@@ -175,6 +206,16 @@ def _art_campaign(surf, art, enabled):
         side1 = (hx + math.cos(a + 0.5) * 18, hy + math.sin(a + 0.5) * 18)
         side2 = (hx + math.cos(a - 0.5) * 18, hy + math.sin(a - 0.5) * 18)
         neon_polygon(surf, C_THARG, [(hx, hy), side1, tip, side2], 2, C_THARG_DARK)
+    blit_glow(surf, hx, hy, 24, C_HEART, 0.7)
+
+
+def _art_coop(surf, art, enabled):
+    t = pygame.time.get_ticks() / 1000.0
+    for i, color in enumerate(C_PLAYERS):
+        y = art.centery + (i * 2 - 1) * 26 + math.sin(t * 2 + i * 1.7) * 5
+        _draw_ship(surf, art.x + art.w * (0.32 - i * 0.08), y, 1.4, color)
+    hx, hy = art.x + art.w * 0.8, art.centery
+    pygame.draw.circle(surf, C_THARG, (int(hx), int(hy)), 22, 2)
     blit_glow(surf, hx, hy, 24, C_HEART, 0.7)
 
 
@@ -271,23 +312,27 @@ async def _confirm_quit(surf, under):
 
 
 async def home():
-    """Returns "campaign", "hangar", "options" or "quit"."""
+    """Returns "campaign", "coop", "hangar", "options" or "quit"."""
     audio.music("title")
     surf = screen.SCREEN = make_screen()
     pygame.display.set_caption(i18n.window_caption())
     pygame.display.set_icon(screen.ICON)
     meta = read_meta()
-    w, h = 300, 250
-    rects = _row_rects(2, w, h, 140, 30)
     cards = [
-        ("campaign", Card(rects[0], i18n.t("menu.card_campaign"),
-                          [(i18n.t("menu.card_campaign_sub"), C_TEXT)],
-                          _art_campaign, C_NEON_CYAN)),
-        ("hangar", Card(rects[1], i18n.t("menu.card_hangar"),
-                        [(i18n.t("menu.card_hangar_sub"), C_TEXT),
-                         (i18n.t("menu.alloy_balance", alloys=meta["alloys"]), C_ALLOY)],
-                        _art_hangar, C_ALLOY)),
+        ("campaign", i18n.t("menu.card_campaign"),
+         [(i18n.t("menu.card_campaign_sub"), C_TEXT)], _art_campaign, C_NEON_CYAN),
+        ("hangar", i18n.t("menu.card_hangar"),
+         [(i18n.t("menu.card_hangar_sub"), C_TEXT),
+          (i18n.t("menu.alloy_balance", alloys=meta["alloys"]), C_ALLOY)],
+         _art_hangar, C_ALLOY),
     ]
+    if not WEB:                      # no sockets in a browser page
+        cards.insert(1, ("coop", i18n.t("menu.card_coop"),
+                         [(i18n.t("menu.card_coop_sub"), C_TEXT)], _art_coop, C_PLAYERS[1]))
+    w, gap = (300, 30) if len(cards) == 2 else (264, 22)
+    rects = _row_rects(len(cards), w, 250, 140, gap)
+    cards = [(key, Card(rect, title, lines, art, accent))
+             for rect, (key, title, lines, art, accent) in zip(rects, cards)]
     cx = WIDTH // 2
     buttons = [("options", Button(cx - 160 if not WEB else cx - 75, 412, 150, 40,
                                   i18n.t("menu.btn_options")))]
@@ -296,6 +341,8 @@ async def home():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "home"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -316,6 +363,7 @@ async def home():
         for _, c in cards + buttons:
             c.draw(surf, mouse)
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)
 
@@ -330,9 +378,16 @@ _STAT_COL = {"hull": C_HULL, "shield": C_SHIELD, "speed": C_NEON_YELLOW,
              "damage": C_NEON_ORANGE}
 
 
-def _draw_ship_shape(surf, key, cx, cy, scale):
-    """The ship silhouette (from player.SHIP_SHAPES), nose to the right."""
+def _draw_ship_shape(surf, key, box, max_scale=2.4):
+    """The ship silhouette (from player.SHIP_SHAPES), nose to the right,
+    scaled down to fit `box` and centred in it: the shapes neither share a
+    size nor sit on their origin."""
     shape = SHIP_SHAPES[key]
+    xs = [px for px, _py in shape["hull"]]
+    ys = [py for _px, py in shape["hull"]]
+    scale = min(max_scale, box.w / (max(xs) - min(xs)), box.h / (max(ys) - min(ys)))
+    cx = box.centerx - (min(xs) + max(xs)) / 2 * scale
+    cy = box.centery - (min(ys) + max(ys)) / 2 * scale
     hull = [(cx + px * scale, cy + py * scale) for px, py in shape["hull"]]
     blit_glow(surf, cx - 15 * scale, cy, int(9 * scale), C_NEON_PINK, 0.5)
     neon_polygon(surf, C_NEON_CYAN, hull)
@@ -349,9 +404,10 @@ def _ship_panel(surf, rect, key, selected, mouse):
     accent = C_NEON_CYAN if selected else (C_NEON_PINK if hovered else C_PANEL_BORDER)
     pygame.draw.rect(surf, accent, r, 2 if (selected or hovered) else 1, border_radius=8)
     cx = r.centerx
-    _draw_ship_shape(surf, key, cx, r.y + 44, 2.4)
+    _draw_ship_shape(surf, key, pygame.Rect(r.x + 14, r.y + 12, r.w - 28, 56))
     name = i18n.ship_name(key)
-    for font in (screen.FONT_TITLE, screen.FONT, screen.FONT_SMALL):
+    # the same size for every name, smaller only when one does not fit
+    for font in (screen.FONT, screen.FONT_SMALL):
         if font.size(name)[0] <= r.w - 16:
             break
     t = font.render(name, True, C_NEON_CYAN if selected else C_TEXT)
@@ -373,16 +429,19 @@ def _ship_panel(surf, rect, key, selected, mouse):
 
 
 async def ships():
-    """Pick the starting hull. Returns "start", "menu" or "quit"; the choice is
-    written to the meta on confirm."""
+    """Pick the starting hull (also the one flown in co-op). Returns "start",
+    "menu" or "quit"; the choice is written to the meta on confirm."""
     audio.music("title")
     surf = screen.SCREEN = make_screen()
     meta = read_meta()
     selected = meta["ship"] if meta["ship"] in SHIP_ORDER else SHIP_ORDER[0]
     w, h = 198, 334
-    rects = [pygame.Rect(rr) for rr in _row_rects(len(SHIP_ORDER), w, h, 92, 14)]
-    start = Button(WIDTH // 2 - 170, HEIGHT - 52, 220, 40, "", C_NEON_CYAN)
-    back = Button(WIDTH // 2 + 70, HEIGHT - 52, 100, 40, "")
+    # below the subtitle, and the buttons above the version line
+    rects = [pygame.Rect(rr) for rr in _row_rects(len(SHIP_ORDER), w, h, 108, 14)]
+    start_w, back_w, gap = 320, 110, 16
+    x0 = WIDTH // 2 - (start_w + gap + back_w) // 2
+    start = Button(x0, HEIGHT - 88, start_w, 40, "", C_NEON_CYAN)
+    back = Button(x0 + start_w + gap, HEIGHT - 88, back_w, 40, "")
 
     def confirm():
         meta["ship"] = selected
@@ -391,6 +450,8 @@ async def ships():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "ships"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -424,6 +485,7 @@ async def ships():
         start.draw(surf, mouse)
         back.draw(surf, mouse)
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)
 
@@ -463,6 +525,8 @@ async def sectors():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "sectors"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -494,6 +558,7 @@ async def sectors():
             t = screen.FONT_TINY.render(line, True, C_TEXT_GRAY)
             surf.blit(t, t.get_rect(center=(WIDTH // 2, HEIGHT - 56 + k * 16)))
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)
 
@@ -545,6 +610,8 @@ async def hangar():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "hangar"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -572,6 +639,7 @@ async def hangar():
         surf.blit(t, t.get_rect(center=(WIDTH // 2, top + len(rows) * step + 14)))
         back.draw(surf, mouse)
         _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)
 
@@ -597,6 +665,8 @@ async def options():
     while True:
         dt = _tick()
         for e in pygame.event.get():
+            if _bug_intercept(e, "options"):
+                continue
             if e.type == pygame.QUIT:
                 return "quit"
             if e.type == pygame.KEYDOWN:
@@ -628,5 +698,263 @@ async def options():
         vol.draw(surf, mouse)
         back.draw(surf, mouse)
         _foot(surf)
+        _bug_overlay(surf, dt)
+        _finish(surf)
+        await asyncio.sleep(0)
+
+
+# ----------------------------------------------------------------------
+#  Co-op lobby (desktop only)
+# ----------------------------------------------------------------------
+
+LOBBY_HELLO_WAIT = 5.0           # seconds a host waits for the partner's hello
+_ADDRESS_CHARS = set("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-")
+
+
+def _connect_in_background(net, address):
+    """Joins `address` in a thread, so the screen keeps drawing. Returns a
+    dict that gets "link" or "error"; setting "cancel" closes a late link."""
+    import threading
+
+    result = {}
+
+    def run():
+        try:
+            link = net.connect(address)
+        except OSError as exc:
+            result["error"] = exc.strerror or str(exc)
+            return
+        if result.get("cancel"):
+            link.close(farewell=False)
+        else:
+            result["link"] = link
+
+    threading.Thread(target=run, daemon=True).start()
+    return result
+
+
+async def lobby():
+    """Host a co-op game or join one on the local network. Returns a
+    `coop.Session`, "menu" or "quit".
+
+    A host gets its session as soon as a partner said hello (it then picks
+    the sector); a client once the host started, with `session.start_level`.
+    """
+    import socket
+
+    from maelstrom import net    # desktop only: never imported in the browser
+    from maelstrom.session.coop import Session, clean_profile, profile
+
+    surf = screen.SCREEN = make_screen()
+    meta = read_meta()
+    me = profile(meta)
+    my_name = socket.gethostname()[:24]
+    my_ip = net.local_ip()
+    browser = net.Browser()
+    state = "idle"               # idle, hosting, greeting, connecting, joined
+    host = link = pending = None
+    typed = ""
+    error = None
+    joined_name = ""
+    greet_t = 0.0
+
+    cx = WIDTH // 2
+    host_btn = Button(60, 150, 380, 52, "", C_PLAYERS[0])
+    join_btn = Button(770, 404, 130, 40, "", C_PLAYERS[1])
+    field = pygame.Rect(500, 404, 258, 40)
+    back = Button(cx - BTN_W // 2, HEIGHT - 62, BTN_W, 40, "")
+    cancel = Button(cx - 110, HEIGHT // 2 + 60, 220, 40, "")
+    found_btns = []
+
+    def reset(message=None):
+        nonlocal state, host, link, pending, error
+        if host:
+            host.close()
+        if link:
+            link.close()
+        if pending is not None:
+            pending["cancel"] = True
+        state, host, link, pending, error = "idle", None, None, None, message
+
+    def start_hosting():
+        nonlocal state, host, error
+        try:
+            host = net.Host(i18n.t("lan.default_host_name", host=my_name))
+        except OSError as exc:
+            error = i18n.t("coop.error_port", error=exc.strerror or exc)
+            return
+        state, error = "hosting", None
+
+    def join(address):
+        nonlocal state, pending, error, joined_name
+        address = address.strip()
+        if not address:
+            return
+        pending = _connect_in_background(net, address)
+        state, error, joined_name = "connecting", None, address
+
+    def leave(outcome):
+        browser.close()
+        reset()
+        return outcome
+
+    while True:
+        dt = _tick()
+        for e in pygame.event.get():
+            if _bug_intercept(e, "lobby"):
+                continue
+            if e.type == pygame.QUIT:
+                return leave("quit")
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_F11:
+                    toggle_fullscreen()
+                elif e.key == pygame.K_ESCAPE:
+                    if state == "idle":
+                        return leave("menu")
+                    reset()
+                elif state == "idle":
+                    if e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        join(typed)
+                    elif e.key == pygame.K_BACKSPACE:
+                        typed = typed[:-1]
+                    elif e.unicode in _ADDRESS_CHARS and len(typed) < 40:
+                        typed += e.unicode
+            if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                if state == "idle":
+                    if host_btn.click(e.pos):
+                        start_hosting()
+                    elif join_btn.click(e.pos):
+                        join(typed)
+                    elif back.click(e.pos):
+                        return leave("menu")
+                    else:
+                        for address, b in found_btns:
+                            if b.click(e.pos):
+                                join(address)
+                elif cancel.click(e.pos):
+                    reset()
+
+        # --- the network side of each state ----------------------------
+        if state == "hosting" and host.link is not None:
+            link = host.release()
+            host, state, greet_t = None, "greeting", 0.0
+        elif state == "greeting":
+            greet_t += dt
+            for msg in link.poll():
+                if msg.get("type") != "hello":
+                    continue
+                if msg.get("protocol") != net.PROTOCOL:
+                    link.send({"type": "refuse", "reason": "version"})
+                    reset(i18n.t("coop.error_version"))
+                    break
+                link.send({"type": "welcome", "name": my_name})
+                session = Session(link, "host", [me, clean_profile(msg.get("profile"))],
+                                  str(msg.get("name", "?"))[:24])
+                link = None              # the session owns it now
+                browser.close()
+                return session
+            if state == "greeting" and (not link.alive or greet_t > LOBBY_HELLO_WAIT):
+                reset(i18n.t("coop.error_lost"))
+        elif state == "connecting":
+            if "error" in pending:
+                reset(i18n.t("coop.error_connect", error=pending["error"]))
+            elif "link" in pending:
+                link, pending = pending["link"], None
+                link.send({"type": "hello", "protocol": net.PROTOCOL,
+                           "name": my_name, "profile": me})
+                state = "joined"
+        elif state == "joined":
+            for msg in link.poll():
+                kind = msg.get("type")
+                if kind == "welcome":
+                    joined_name = str(msg.get("name", joined_name))[:24]
+                elif kind == "refuse":
+                    reset(i18n.t("coop.error_version"))
+                    break
+                elif kind == "bye":
+                    reset(i18n.t("coop.error_lost"))
+                    break
+                elif kind == "start":
+                    players = msg.get("players")
+                    if not isinstance(players, list) or len(players) != 2:
+                        continue
+                    session = Session(link, "client",
+                                      [clean_profile(p) for p in players], joined_name)
+                    try:
+                        level = int(msg.get("level", 0))
+                    except (TypeError, ValueError):
+                        level = 0
+                    session.start_level = max(0, min(len(LEVELS) - 1, level))
+                    link = None
+                    browser.close()
+                    return session
+            if state == "joined" and not link.alive:
+                reset(i18n.t("coop.error_lost"))
+
+        # --- drawing -----------------------------------------------------
+        _background(surf, "maelstrom", dt, 170)
+        _title(surf, i18n.t("coop.title"), i18n.t("coop.subtitle"), 40)
+        mouse = pygame.mouse.get_pos()
+        if state == "idle":
+            host_btn.text = i18n.t("coop.btn_host")
+            host_btn.draw(surf, mouse)
+            for k, line in enumerate(wrap(i18n.t("coop.host_help"), screen.FONT_SMALL, 380)):
+                t = screen.FONT_SMALL.render(line, True, C_TEXT_GRAY)
+                surf.blit(t, (60, 216 + k * 20))
+
+            t = screen.FONT.render(i18n.t("coop.found"), True, C_TEXT)
+            surf.blit(t, (500, 120))
+            found_btns = []
+            for k, (address, info) in enumerate(browser.hosts()[:4]):
+                b = Button(500, 150 + k * 48, 400, 40,
+                           i18n.t("coop.found_line", name=info["name"], ip=address),
+                           C_PLAYERS[1])
+                b.center = False
+                b.enabled = info["protocol"] == net.PROTOCOL
+                if not b.enabled:
+                    b.right = i18n.t("coop.other_version")
+                b.draw(surf, mouse)
+                found_btns.append((address, b))
+            if not found_btns:
+                t = screen.FONT_SMALL.render(i18n.t("coop.none_found"), True, C_TEXT_GRAY)
+                surf.blit(t, (500, 160))
+
+            t = screen.FONT_SMALL.render(i18n.t("coop.address"), True, C_TEXT)
+            surf.blit(t, (500, 380))
+            pygame.draw.rect(surf, C_PANEL, field, border_radius=5)
+            pygame.draw.rect(surf, C_PANEL_BORDER, field, 2, border_radius=5)
+            caret = "_" if int(pygame.time.get_ticks() / 500) % 2 == 0 else " "
+            t = screen.FONT.render(typed + caret, True, C_TEXT)
+            surf.blit(t, (field.x + 10, field.centery - t.get_height() // 2))
+            join_btn.text = i18n.t("coop.btn_join")
+            join_btn.draw(surf, mouse)
+
+            if error:
+                for k, line in enumerate(wrap(error, screen.FONT_SMALL, WIDTH - 120)):
+                    t = screen.FONT_SMALL.render(line, True, C_NEON_RED)
+                    surf.blit(t, t.get_rect(center=(cx, HEIGHT - 110 + k * 20)))
+            back.text = i18n.t("menu.btn_back")
+            back.draw(surf, mouse)
+        else:
+            if state in ("hosting", "greeting"):
+                lines = [(i18n.t("coop.hosting"), C_TEXT),
+                         (i18n.t("coop.hosting_ip", ip=my_ip, port=net.PORT),
+                          C_PLAYERS[0])]
+            elif state == "connecting":
+                lines = [(i18n.t("coop.connecting", ip=joined_name), C_TEXT)]
+            else:
+                lines = [(i18n.t("coop.joined", name=joined_name), C_PLAYERS[1]),
+                         (i18n.t("coop.wait_sector"), C_TEXT_GRAY)]
+            box = pygame.Rect(cx - 280, HEIGHT // 2 - 90, 560, 210)
+            pygame.draw.rect(surf, C_PANEL, box, border_radius=8)
+            pygame.draw.rect(surf, C_PANEL_BORDER, box, 2, border_radius=8)
+            dots = "." * (1 + int(pygame.time.get_ticks() / 400) % 3)
+            for k, (line, col) in enumerate(lines):
+                t = screen.FONT.render(line + (dots if k == 0 else ""), True, col)
+                surf.blit(t, t.get_rect(center=(cx, box.y + 50 + k * 36)))
+            cancel.text = i18n.t("menu.btn_cancel")
+            cancel.draw(surf, mouse)
+        _foot(surf)
+        _bug_overlay(surf, dt)
         _finish(surf)
         await asyncio.sleep(0)

@@ -1,4 +1,9 @@
-"""Combat: hits, kills, drops and what a container does, the Interceptor."""
+"""Combat: hits, kills, drops and what a container does, the Interceptor.
+
+Every ship of `self.ships` takes part (one solo, two in co-op). The visual
+effects go through `spark`, `explode`, `ring`, `float_at` and `show_banner`:
+a co-op host also records them (`emit`) for the client to replay.
+"""
 
 import math
 import random
@@ -34,9 +39,10 @@ class Combat:
                                      math.sin(angle) * speed, dmg, "enemy",
                                      radius=5, life=8.0))
 
-    def fire_missiles(self):
-        if self.phase in ("play", "warning", "boss"):
-            self.missiles.extend(self.ship.launch_missiles())
+    def fire_missiles(self, ship=None):
+        ship = ship or self.ship
+        if self.phase in ("play", "warning", "boss") and not ship.down:
+            self.missiles.extend(ship.launch_missiles())
 
     def missile_target(self, missile):
         """The nearest Thargoid (asteroids aside), or the Interceptor."""
@@ -79,40 +85,43 @@ class Combat:
                     else:
                         s.dead = True
 
-        ship = self.ship
-        if self.phase != "boss_dying":
-            for s in self.enemy_shots:
-                if _close(s.x, s.y, ship.x, ship.y, ship.hitbox + s.radius):
-                    if ship.hit(s.damage):
-                        s.dead = True
-                        self.on_ship_hit()
-            for e in self.enemies:
-                if e.hp > 0 and _close(e.x, e.y, ship.x, ship.y, ship.hitbox + e.radius * 0.8):
-                    if ship.hit(e.contact):
-                        self.on_ship_hit()
-                        e.hp -= CONTACT_SELF_DAMAGE
-                    if e.kind == "mine":
-                        e.hp = 0
-            if boss and boss.hit_test(ship.x, ship.y, ship.hitbox):
-                if ship.hit(BOSS_CONTACT):
-                    self.on_ship_hit()
-            for c in self.clouds:
-                if _close(c.x, c.y, ship.x, ship.y, c.radius * 0.8):
-                    ship.add_effect("caustic", CAUSTIC_CLOUD["stain"], malus=True)
-        for p in self.pickups:
-            if _close(p.x, p.y, ship.x, ship.y, PICKUP_RADIUS):
-                p.taken = True
-                self.take_pickup(p)
+        for ship in self.live_ships():
+            self.collide_ship(ship, boss)
 
         for e in self.enemies:
             if e.hp <= 0:
                 self.kill(e)
         self.enemies = [e for e in self.enemies if e.hp > 0]
 
-    def on_ship_hit(self):
+    def collide_ship(self, ship, boss):
+        if self.phase != "boss_dying":
+            for s in self.enemy_shots:
+                if not s.dead and _close(s.x, s.y, ship.x, ship.y, ship.hitbox + s.radius):
+                    if ship.hit(s.damage):
+                        s.dead = True
+                        self.on_ship_hit(ship)
+            for e in self.enemies:
+                if e.hp > 0 and _close(e.x, e.y, ship.x, ship.y, ship.hitbox + e.radius * 0.8):
+                    if ship.hit(e.contact):
+                        self.on_ship_hit(ship)
+                        e.hp -= CONTACT_SELF_DAMAGE
+                    if e.kind == "mine":
+                        e.hp = 0
+            if boss and boss.hit_test(ship.x, ship.y, ship.hitbox):
+                if ship.hit(BOSS_CONTACT):
+                    self.on_ship_hit(ship)
+            for c in self.clouds:
+                if _close(c.x, c.y, ship.x, ship.y, c.radius * 0.8):
+                    ship.add_effect("caustic", CAUSTIC_CLOUD["stain"], malus=True)
+        for p in self.pickups:
+            if not p.taken and _close(p.x, p.y, ship.x, ship.y, PICKUP_RADIUS):
+                p.taken = True
+                self.take_pickup(p, ship)
+
+    def on_ship_hit(self, ship):
         self.shake = max(self.shake, 6)
         for _ in range(8):
-            self.spark(self.ship.x, self.ship.y, C_NEON_CYAN)
+            self.spark(ship.x, ship.y, ship.color)
 
     def hit_enemy(self, e, damage, x, y):
         e.hp -= damage
@@ -129,32 +138,50 @@ class Combat:
             self.clouds.append(CausticCloud(e.x, e.y, self.scroll * 0.5))
         if e.radius >= 18:
             self.shake = max(self.shake, 4)
-        if random.random() < e.drop * self.ship.drop_mult:
+        if random.random() < e.drop * max(s.drop_mult for s in self.ships):
             self.pickups.append(Pickup(e.x, e.y, *roll_container()))
 
     # --- effects ------------------------------------------------------------
 
+    def emit(self, *event):
+        """Records a visual effect for the co-op client (host only)."""
+        if self.role == "host":
+            self.fx.append(event)
+
     def spark(self, x, y, color):
+        self.emit("spark", round(x), round(y), color)
         a = random.uniform(0, math.tau)
         v = random.uniform(40, 160)
         self.particles.append(Particle(x, y, math.cos(a) * v, math.sin(a) * v,
                                        random.uniform(0.15, 0.35), color, 2))
 
     def explode(self, x, y, color, count, speed=180):
+        self.emit("explode", round(x), round(y), color, count, round(speed))
         for _ in range(count):
             a = random.uniform(0, math.tau)
             v = random.uniform(0.2, 1.0) * speed
             self.particles.append(Particle(x, y, math.cos(a) * v, math.sin(a) * v,
                                            random.uniform(0.3, 0.8), color,
                                            random.choice((2, 2, 3))))
-        self.rings.append(Ring(x, y, count * 2 + 10, color, 0.45))
+        self.ring(x, y, count * 2 + 10, color, 0.45, emit=False)
 
-    def float_text(self, text, color):
-        self.floats.append(FloatText(self.ship.x, self.ship.y - 30, text, color))
+    def ring(self, x, y, radius, color, life=0.6, width=3, emit=True):
+        if emit:
+            self.emit("ring", round(x), round(y), radius, color, life, width)
+        self.rings.append(Ring(x, y, radius, color, life, width))
+
+    def float_at(self, x, y, spec, color, life=1.1):
+        """A floating text; `spec` is a text as data (see `i18n.text`)."""
+        self.emit("float", round(x), round(y), spec, color, life)
+        self.floats.append(FloatText(x, y, i18n.text(spec), color, life))
+
+    def float_text(self, spec, color, ship=None):
+        ship = ship or self.ship
+        self.float_at(ship.x, ship.y - 30, spec, color)
 
     # --- containers ---------------------------------------------------------
 
-    def take_pickup(self, p):
+    def take_pickup(self, p, ship):
         cat, key = p.cat, p.key
         alloy_mult = 1
         if cat == "mystery":
@@ -163,13 +190,12 @@ class Combat:
                 cat, key = "bonus", weighted(BONUSES)
             else:
                 cat, key = "malus", weighted(MALUSES)
-        ship = self.ship
-        self.rings.append(Ring(ship.x, ship.y, 40, C_BONUS if cat == "bonus" else C_MALUS, 0.35))
+        self.ring(ship.x, ship.y, 40, C_BONUS if cat == "bonus" else C_MALUS, 0.35)
 
         if cat == "malus":
             m = MALUSES[key]
             ship.add_effect(key, m["time"], malus=True)
-            self.float_text(i18n.pickup_name(key), C_MALUS)
+            self.float_text(["pickup_name", key], C_MALUS, ship)
             self.shake = max(self.shake, 5)
             return
 
@@ -177,13 +203,15 @@ class Combat:
             weapon = p.weapon if p.key == "weapon" else ship.weapon
             if weapon == ship.weapon and ship.level >= WEAPON_MAX_LEVEL:
                 self.gain_alloys(WEAPON_MAXED_ALLOY)
-                self.float_text(i18n.t("combat.weapon_maxed", alloys=WEAPON_MAXED_ALLOY), C_ALLOY)
+                self.float_text(["t", "combat.weapon_maxed", {"alloys": WEAPON_MAXED_ALLOY}],
+                                C_ALLOY, ship)
                 return
             if weapon == ship.weapon:
                 ship.level += 1
             ship.weapon = weapon
-            self.float_text(i18n.t("combat.weapon_up", name=i18n.weapon_name(weapon), level=ship.level),
-                            C_NEON_ORANGE)
+            self.float_text(["t", "combat.weapon_up",
+                             {"name": ["weapon_name", weapon], "level": ship.level}],
+                            C_NEON_ORANGE, ship)
             return
         b = BONUSES[key]
         if key == "shield":
@@ -198,9 +226,9 @@ class Combat:
         elif key == "alloy":
             amount = b["amount"] * alloy_mult
             self.gain_alloys(amount)
-            self.float_text(i18n.t("combat.alloy_gain", amount=amount), C_ALLOY)
+            self.float_text(["t", "combat.alloy_gain", {"amount": amount}], C_ALLOY, ship)
             return
-        self.float_text(i18n.pickup_name(key), C_BONUS)
+        self.float_text(["pickup_name", key], C_BONUS, ship)
 
     # --- the Interceptor ----------------------------------------------------
 
@@ -208,26 +236,28 @@ class Combat:
         pass
 
     def on_boss_exposed(self):
-        self.show_banner(i18n.t("banner.boss_exposed"), "", C_HEART, 1.2)
+        self.show_banner(["t", "banner.boss_exposed"], "", C_HEART, 1.2)
 
     def hit_boss(self, damage, x, y):
         result = self.boss.damage(damage)
         self.spark(x, y, C_HEART if self.boss.state == "exposed" else C_THARG)
         if result == "heart":
             b = self.boss
-            self.rings.append(Ring(b.x, b.y, 900, (190, 220, 255), 1.1, 5))
+            self.ring(b.x, b.y, 900, (190, 220, 255), 1.1, 5)
             self.explode(b.x, b.y, C_HEART, 40, 260)
             self.shake = 12
-            self.ship.add_effect("shutdown", BOSS_SHUTDOWN, malus=True)
+            for ship in self.ships:
+                ship.add_effect("shutdown", BOSS_SHUTDOWN, malus=True)
             self.gain_alloys(BOSS_ALLOY_PER_HEART)
-            self.show_banner(i18n.t("banner.heart_down"), "", C_HEART, 1.6)
+            self.show_banner(["t", "banner.heart_down"], "", C_HEART, 1.6)
             for _ in range(2):
                 self.pickups.append(Pickup(b.x - b.radius, b.y, "bonus", weighted(BONUSES)))
         elif result == "dead":
             self.phase, self.phase_t = "boss_dying", 0.0
             self.enemy_shots.clear()
             self.gain_alloys(BOSS_ALLOY + BOSS_ALLOY_PER_HEART)
-            self.ship.invuln = BOSS_DEATH_TIME + 1
+            for ship in self.ships:
+                ship.invuln = BOSS_DEATH_TIME + 1
 
     def update_boss_death(self, dt):
         b = self.boss
@@ -240,7 +270,7 @@ class Combat:
             self.shake = max(self.shake, 7)
         if self.phase_t >= BOSS_DEATH_TIME:
             self.explode(b.x, b.y, C_HEART, 90, 420)
-            self.rings.append(Ring(b.x, b.y, 600, C_THARG, 1.2, 6))
+            self.ring(b.x, b.y, 600, C_THARG, 1.2, 6)
             self.shake = 20
             for e in self.enemies:
                 e.hp = 0

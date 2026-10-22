@@ -1,0 +1,148 @@
+name: Packages
+
+# Builds both installers: a .exe for Windows, an AppImage for Linux, and
+# publishes them on the GitHub Releases page under their tag. Each package is
+# run after it is built and must pass its own self-check (main.py
+# --verification), otherwise the pipeline fails.
+#
+# One way in: pushing a v* tag that points at a commit of origin/main.
+#
+#     # bump VERSION in settings/__init__.py, commit, push main, then:
+#     git tag v0.2.0 origin/main && git push origin v0.2.0
+#
+# The tag is refused (and nothing is built) when its commit is not on main,
+# or when its number differs from VERSION in settings/__init__.py: the game
+# shows that number on its home screen, so both must agree.
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # Computed once, in a job of its own: the two build jobs and the release
+  # have to agree on the very same number.
+  version:
+    name: Version number
+    runs-on: ubuntu-latest
+    outputs:
+      number: ${{ steps.pick.outputs.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the whole history: the tag must be checked against origin/main
+          fetch-depth: 0
+      - name: Check the tag
+        id: pick
+        shell: bash
+        run: |
+          number="${GITHUB_REF_NAME#v}"
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::tag ${GITHUB_REF_NAME} is not on origin/main." \
+                 "Tag a commit of main: git tag ${GITHUB_REF_NAME} origin/main"
+            exit 1
+          fi
+          base=$(python3 -c "import io,re; print(re.search(r'^VERSION = \"([^\"]+)\"', io.open('settings/__init__.py', encoding='utf-8').read(), re.M).group(1))")
+          if [[ "$number" != "$base" ]]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match VERSION = \"$base\"" \
+                 "in settings/__init__.py. Bump VERSION on main, then tag again."
+            exit 1
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "Version $number, commit $GITHUB_SHA on origin/main"
+
+  linux:
+    name: AppImage (Linux)
+    needs: version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -r requirements.txt pyinstaller pillow
+      - name: Icon
+        run: python packaging/make_icon.py
+      - name: PyInstaller package
+        run: pyinstaller --noconfirm --clean --distpath dist --workpath build/pyi packaging/maelstrom.spec
+      - name: The package checks itself
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ./dist/Maelstrom/Maelstrom --verification
+      - name: AppImage
+        run: bash packaging/linux/make_appimage.sh "${{ needs.version.outputs.number }}"
+      - name: The AppImage checks itself
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          file=$(ls dist/*.AppImage)
+          "$file" --appimage-extract-and-run --verification
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage-linux
+          path: dist/*.AppImage
+          if-no-files-found: error
+
+  windows:
+    name: Installer (Windows)
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -r requirements.txt pyinstaller pillow
+      - name: Icon
+        run: python packaging/make_icon.py
+      - name: PyInstaller package
+        run: pyinstaller --noconfirm --clean --distpath dist --workpath build/pyi packaging/maelstrom.spec
+      - name: The package checks itself
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        # a windowed (console=False) exe returns at once in PowerShell:
+        # Start-Process -Wait to get its real exit code
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath .\dist\Maelstrom\Maelstrom.exe `
+                 -ArgumentList "--verification" -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
+      - name: Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc "/DVersion=${{ needs.version.outputs.number }}" packaging\windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-windows
+          path: dist/*-setup.exe
+          if-no-files-found: error
+
+  # The two installers land on the GitHub Releases page, under the tag.
+  release:
+    name: Release
+    needs: [version, linux, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Maelstrom ${{ github.ref_name }}
+          files: packages/**/*
+          generate_release_notes: true

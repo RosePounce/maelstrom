@@ -19,7 +19,21 @@ from settings.balance import DEFAULT_SHIP, LEVELS, MISSILE_START, SHIPS
 from settings.ui import PROJECT_DIR, WEB
 
 
-SAVE_DIR = os.path.join(PROJECT_DIR, "saves")
+def _save_dir():
+    """Run from the sources, the saves sit next to the project. Packaged
+    (PyInstaller), that folder is read-only (Program Files, the AppImage
+    mount): they go to the player's home, at the usual spot per system."""
+    if not getattr(sys, "frozen", False):
+        return os.path.join(PROJECT_DIR, "saves")
+    if sys.platform.startswith("win"):
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+        return os.path.join(base, "Maelstrom")
+    base = os.environ.get("XDG_DATA_HOME") or os.path.join(
+        os.path.expanduser("~"), ".local", "share")
+    return os.path.join(base, "maelstrom")
+
+
+SAVE_DIR = _save_dir()
 STORE_PREFIX = "maelstrom."   # prefix of the keys in the browser storage
 
 # Game log: one logger for the whole game, configured by setup_logging()

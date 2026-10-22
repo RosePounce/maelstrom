@@ -12,9 +12,11 @@ In the browser (pygbag packages this folder as WebAssembly):
     pygbag .                 # serves on http://localhost:8000
     pygbag --build .         # writes build/web/, to publish as is
 
-Three layers, one role each: et le chieta
-  - main.py    this loop: home -> sectors -> sector -> ... -> home;
-  - menu.py    the screens outside a sector (home, sectors, hangar, options);
+Three layers, one role each:
+  - main.py    this loop: home -> sectors -> sector -> ... -> home, and the
+               co-op one: home -> ship -> lobby -> sector -> ... -> home;
+  - menu.py    the screens outside a sector (home, sectors, hangar, options,
+               co-op lobby);
   - game/      the game, whose `loop.play()` plays ONE sector (all its
                attempts) and returns where to go next; its settings are
                apart, in settings/.
@@ -32,7 +34,7 @@ import pygame
 
 import menu
 from settings.ui import WEB
-from maelstrom import bugreport, loop
+from maelstrom import bugreport, bugsend, loop
 
 
 async def campaign(level):
@@ -54,8 +56,34 @@ async def campaign(level):
         return outcome
 
 
+async def coop():
+    """A two-player co-op game on the local network (desktop only). Returns
+    "menu" or "quit".
+
+    Each player picks their ship, then hosts or joins in the lobby. The host
+    picks the sector among those IT has freed; the client waits for it."""
+    chosen = await menu.ships()
+    if chosen != "start":
+        return chosen
+    session = await menu.lobby()
+    if isinstance(session, str):
+        return session
+    try:
+        if session.role == "host":
+            level = await menu.sectors()
+            if isinstance(level, str):           # the host went back
+                return level
+            session.send({"type": "start", "level": level, "players": session.players})
+        else:
+            level = session.start_level
+        return await loop.play_coop(session, level)
+    finally:
+        session.close()
+
+
 async def main():
     menu.init()
+    bugsend.flush_async()        # resend whatever an earlier run could not
     while True:
         choice = await menu.home()
         if choice == "quit":
@@ -66,6 +94,10 @@ async def main():
             continue
         if choice == "options":
             if await menu.options() == "quit":
+                break
+            continue
+        if choice == "coop":
+            if await coop() == "quit":
                 break
             continue
         # campaign: pick a ship, then the sector list (coming back to it loops)
@@ -83,6 +115,40 @@ async def main():
             break
 
 
+def verification():
+    """`--verification`: the packaged game checks itself, then quits.
+
+    Run by the release pipeline (.github/workflows/packages.yml) on the
+    PyInstaller package and on the AppImage, under SDL's dummy drivers: the
+    bundled font and languages must load, and every sector must start and
+    play a few seconds without raising. Returns the exit code."""
+    from maelstrom import i18n, screen
+    from maelstrom.session.game import Game
+    from settings.balance import LEVELS
+
+    menu.init()
+    for code in ("fr", "en"):
+        if not i18n.catalog(code):
+            print(f"verification: language {code} missing", file=sys.stderr)
+            return 1
+    if screen.FONT is None:
+        print("verification: font not loaded", file=sys.stderr)
+        return 1
+    for index in range(len(LEVELS)):
+        game = Game(index)
+        for _ in range(180):
+            game.update(1 / 60)
+            game.draw()
+        pygame.display.flip()
+    print(f"verification: {len(LEVELS)} sectors OK")
+    return 0
+
+
+if not WEB and "--verification" in sys.argv[1:]:
+    code = verification()
+    pygame.quit()
+    sys.exit(code)
+
 # pygbag looks for an `asyncio.run(main())` at module level: it is its entry
 # point. In the browser the call never returns.
 #
@@ -96,6 +162,13 @@ except Exception:
     folder = bugreport.report_crash(loop.current_game)
     if folder:
         print(f"Crash report written to {folder}", file=sys.stderr)
+        # Leave a ticket so the next launch sends it (sending now, on the way
+        # down, is unsafe). Only when the player allowed it and a relay is set.
+        if bugsend.consent() and bugsend.enabled():
+            try:
+                bugsend.queue_report(folder, "crash")
+            except OSError:
+                pass
     raise
 if not WEB:
     pygame.quit()

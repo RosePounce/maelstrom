@@ -6,7 +6,7 @@ import random
 import pygame
 
 from settings.balance import (
-    BONUSES, DEFAULT_SHIP, HANGAR, HIT_INVULN, MALUSES, MAGNET_RADIUS,
+    BONUSES, COOP_REVIVE_HULL, DEFAULT_SHIP, HANGAR, HIT_INVULN, MALUSES, MAGNET_RADIUS,
     MISSILE_COOLDOWN, MISSILE_MAX, SHIELD_DELAY, SHIELD_REGEN, SHIP_HITBOX,
     SHIP_HULL, SHIP_SHIELD, SHIP_SPEED, SHIPS, SPAWN_INVULN, WEAPONS,
 )
@@ -33,13 +33,15 @@ SHIP_SHAPES = {
         "cockpit": [(8, 0), (0, -3), (0, 3)],
     },
     "chieftain": {
-        "hull": [(23, 0), (6, -3), (2, -12), (-4, -5), (-10, -9), (-14, -4),
-                 (-14, 4), (-10, 9), (-4, 5), (2, 12), (6, 3)],
+        "hull": [(18.3, 0), (6.6, -5.5), (0.1, -12), (-4, -5), (-7.1, -5.1),
+                 (-14, -10), (-12.1, -3), (-11.8, 2.2), (-14, 9.6), (-7, 4.9),
+                 (-4, 5), (0.1, 12.2), (6.8, 5.1)],
         "cockpit": [(12, 0), (4, -3), (4, 3)],
     },
     "type10": {
-        "hull": [(18, 0), (10, -4), (-6, -10), (-20, -20), (-16, -6),
-                 (-18, 0), (-16, 6), (-20, 20), (-6, 10), (10, 4)],
+        "hull": [(12.7, -7.2), (7.7, -11.1), (0, -17), (-14.4, -17), (-12.5, -7.2),
+                 (-19.2, -7), (-19.7, 7.8), (-12, 7.9), (-14.6, 17.8), (0, 17.8),
+                 (7.4, 12.3), (12.7, 7.9)],
         "cockpit": [(8, 0), (1, -4), (1, 4)],
     },
     "mamba": {
@@ -55,7 +57,7 @@ COCKPIT = SHIP_SHAPES[DEFAULT_SHIP]["cockpit"]
 
 
 class Ship:
-    def __init__(self, x, y, hangar, loadout, ship=DEFAULT_SHIP):
+    def __init__(self, x, y, hangar, loadout, ship=DEFAULT_SHIP, color=C_NEON_CYAN):
         def lv(key):
             return hangar.get(key, 0)
 
@@ -95,6 +97,14 @@ class Ship:
         self.shield_flash = 0.0
         self.tilt = 0.0              # -1 climbing .. 1 diving, for the drawing
         self.t = 0.0
+        self.color = color           # the outline: tells the two co-op ships apart
+        # what steers it: the keyboard direction and the pointer motion not
+        # spent yet. The local player's come from its own controls, a co-op
+        # partner's from the network.
+        self.axes = (0.0, 0.0)
+        self.drag = [0.0, 0.0]
+        self.down = False            # co-op: shot down, waiting to return
+        self.respawn_t = 0.0
 
     def loadout(self):
         """What carries over to the next sector (and to a checkpoint)."""
@@ -182,6 +192,23 @@ class Ship:
             self.flash = 1.0
         return True
 
+    def knock_down(self, respawn):
+        """Co-op: the ship is destroyed but comes back in `respawn` seconds
+        if its partner holds on."""
+        self.down = True
+        self.respawn_t = respawn
+        self.effects.clear()
+        self.drag[0] = self.drag[1] = 0.0
+
+    def revive(self, x, y):
+        self.down = False
+        self.x, self.y = x, y
+        self.hull = max(1, self.hull_max * COOP_REVIVE_HULL)
+        self.shield = self.shield_max
+        self.invuln = SPAWN_INVULN
+        self.since_hit = 99.0
+        self.drag[0] = self.drag[1] = 0.0
+
     def add_effect(self, key, seconds, malus=False):
         if malus:
             seconds *= self.malus_mult
@@ -257,7 +284,7 @@ class Ship:
             pygame.draw.polygon(surf, flame_col, pts)
             blit_glow(surf, x - 16, y, 16, C_NEON_PINK, 0.6 * flicker)
 
-        outline = C_NEON_CYAN
+        outline = self.color
         if self.flash > 0:
             outline = (255, 255, 255)
         elif shutdown:
