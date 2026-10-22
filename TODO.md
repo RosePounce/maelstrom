@@ -8,23 +8,6 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
 
 ## A faire
 
-- [ ] (P2) **Son et musique synthwave** — leve le « pas de son » actuel. Deux
-  volets :
-  - **Effets** : tir, impacts, explosions, ramassage bonus / malus, alerte
-    Intercepteur, coeur detruit, clics d'interface.
-  - **Musique** : nappes synthwave en fond, variant par secteur et montant d'un
-    cran au boss.
-  - *A definir* : assets audio embarques **ou** synthese procedurale (rester
-    coherent avec le « zero asset, tout dessine » du projet) ; contraintes
-    pygbag (audio navigateur, prechargement, mixer en async, deblocage au
-    premier clic) ; reglage volume / coupure dans les Options (memorise comme la
-    langue) ; mise en sourdine quand l'onglet ou la fenetre perd le focus.
-  - *Retour de jeu* (rapport `20261021-124702`, fait sur la branche
-    `feature/music`) : « il faut une continuite entre le son du niveau et celui
-    du boss ». Pas de coupure seche a l'arrivee de l'Intercepteur : fondu
-    enchaine, ou meme tempo / tonalite pour que la piste du boss prolonge celle
-    du secteur.
-
 - [ ] (P2) **Succes / achievements par secteur** — des defis debloquables,
   plusieurs par secteur. Exemples de criteres : liberer sans mourir, sans etre
   touche (no-hit), sous un temps donne, tuer l'Intercepteur sans qu'il se
@@ -139,6 +122,15 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     cote client si le reseau saccade.
 
 ## Fait
+
+- [x] (P2) **Musique synthwave** — leve le « pas de son ». `maelstrom/audio.py`
+  streame une piste a la fois (`pygame.mixer.music`), table `MUSIC` et assets
+  `.ogg` par secteur / boss / jingle, volume dans Options, mise en pause sur
+  perte de focus. Un changement de piste n'est plus une coupure seche mais un
+  pont fondu (`MUSIC_CROSSFADE` : fondu de sortie puis d'entree, un seul flux) :
+  plus d'a-coup a l'arrivee de l'Intercepteur (retour de jeu `20261021-124702`).
+  *Effets sonores ecartes* : un essai de SFX proceduraux noyait la musique
+  (retour `20261022-202900`) ; le jeu reste a la musique seule.
 
 - [x] (P1) **F8 partout** — le formulaire de rapport s'ouvre a F8 sur chaque
   ecran hors secteur (accueil, vaisseau, secteurs, hangar, options, salon),

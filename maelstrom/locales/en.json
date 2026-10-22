@@ -17,7 +17,8 @@
     "fullscreen_on": "Fullscreen: on   (F11)",
     "fullscreen_off": "Fullscreen: off   (F11)",
     "alloy_balance": "Meta-Alloy: {alloys}",
-    "language": "Language: {name}"
+    "language": "Language: {name}",
+    "music": "Music: {pct} %"
   },
 
   "ships": {

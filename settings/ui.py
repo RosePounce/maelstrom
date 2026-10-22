@@ -202,7 +202,14 @@ MUSIC = {
 MUSIC_VOLUMES = (0.0, 0.25, 0.5, 0.75, 1.0)   # the steps of the options button
 MUSIC_VOLUME = 0.5             # until the player picks one
 MUSIC_FADE_IN = 400            # ms, when a looping track starts
+MUSIC_JINGLE_FADE_IN = 180     # ms, when a one-shot jingle starts (warning,
+                               # dead, cleared): short, so it still hits, but
+                               # no hard click at the start
 MUSIC_FADE_OUT = 1500          # ms, under the Interceptor's explosions
+MUSIC_CROSSFADE = 450          # ms: a track change fades the old one out this
+                               # long, then the new one fades in (one stream,
+                               # so a bridge, not an overlap) -- no hard cut at
+                               # the Interceptor's arrival (sector -> warning -> boss)
 
 
 # ----------------------------------------------------------------------
