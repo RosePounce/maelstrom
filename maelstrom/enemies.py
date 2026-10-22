@@ -15,8 +15,9 @@ from settings.balance import (
     BOSS_STAGGER, BOSSES, ENEMIES, LEVEL_DAMAGE_SCALE, LEVEL_HP_SCALE,
 )
 from settings.ui import (
-    BOSS_LOOKS, C_CAUSTIC, C_HEART, C_HEART_COLD, C_NEON_PURPLE, C_NEON_RED,
-    C_THARG, C_THARG_DARK, HEIGHT, PLAY_BOTTOM, PLAY_TOP, WIDTH,
+    BOSS_LOOKS, C_CAUSTIC, C_HEART, C_HEART_COLD, C_NEON_ORANGE,
+    C_NEON_PURPLE, C_NEON_RED, C_NEON_YELLOW, C_THARG, C_THARG_DARK, HEIGHT,
+    PLAY_BOTTOM, PLAY_TOP, WIDTH,
 )
 from maelstrom.neon import blit_glow, lerp_color, neon_polygon, rotate_points
 
@@ -265,10 +266,9 @@ class Interceptor:
     def set_state(self, state):
         self.state, self.state_t = state, 0.0
 
-    def update(self, dt, game):
-        self.t += dt
-        self.state_t += dt
-        self.hit_flash = max(0.0, self.hit_flash - dt * 5)
+    def _move(self, dt, game):
+        """Where the boss flies this frame. The entry glides in; afterwards it
+        drifts. A subclass (the Titan) can fly differently."""
         if self.state == "enter":
             self.x -= 120 * dt
             if self.x <= self.target_x:
@@ -281,6 +281,12 @@ class Interceptor:
             self.move_t += dt
             self.y = HEIGHT * 0.47 + math.sin(self.move_t * 0.55) * HEIGHT * 0.26
             self.x = self.target_x + math.sin(self.move_t * 0.9) * 26
+
+    def update(self, dt, game):
+        self.t += dt
+        self.state_t += dt
+        self.hit_flash = max(0.0, self.hit_flash - dt * 5)
+        self._move(dt, game)
         if self.state == "armored" and self.state_t >= BOSS_ARMORED_TIME:
             self.set_state("exposed")
             game.on_boss_exposed()
@@ -429,3 +435,252 @@ class Interceptor:
             hx = x + (i - (self.hearts - 1) / 2) * 14
             col = C_HEART if i >= self.heart - 1 else (60, 40, 40)
             pygame.draw.circle(surf, col, (int(hx), int(y - r * 1.28)), 4)
+
+
+# Tentacle, sweep and death-ray timings of the Titan (kept here beside the
+# spiral's inline timing, in the same spirit as the Interceptor above).
+TITAN_TENTACLES = 5
+TITAN_SWEEP_TIME = 1.4         # seconds a tentacle sweep keeps raking
+TITAN_SWEEP_ARC = 1.5         # radians the sweep travels across the player's side
+TITAN_BEAM_CHARGE = 1.0       # telegraph before the death ray fires
+TITAN_BEAM_FIRE = 0.85        # the ray is live this long
+TITAN_BEAM_HALF = 16          # half-width of the lethal beam, logical pixels
+
+
+class Titan(Interceptor):
+    """The Titan: the campaign's final boss, a colossus dwarfing an Interceptor.
+
+    A huge spiny heart ringed by red PODS (its weak points, broken one by one
+    -- mapped onto the heart mechanic it inherits) and long ARTICULATED
+    TENTACLES that wave and sweep. It keeps the armored/exposed rhythm and
+    damage model, but barely moves (it fills the screen), hits harder, and
+    adds three patterns: a tentacle `sweep` (a wall of fire down the player's
+    side), a `caustic` spit (a spread of caustic mines) and a telegraphed
+    `beam` -- a death ray that scythes across the arena. And it does not fall
+    for good at once: each time its pods are all destroyed it RISES again,
+    recoloured and stronger (`forms` in BOSSES), until its last form dies."""
+
+    def __init__(self, key, level_index):
+        super().__init__(key, level_index)
+        b = BOSSES[key]
+        self.form = 0
+        self.form_count = b.get("forms", 1)
+        self._apply_form()
+        self.heart_hp = self.heart_hp_max
+        self.x = WIDTH + self.radius * 2.0
+        self.target_x = WIDTH * 0.70
+        self.sweep_t = 0.0
+        self.sweep_emit = 0.0
+        self.beam_t = 0.0
+        self.beam_angle = math.pi
+
+    def _apply_form(self):
+        """Health, cadence and colours of the current form."""
+        b = BOSSES[self.key]
+        self.heart_hp_max = b["heart_hp"] * b.get("form_hp", 1.0) ** self.form
+        self.period = b["period"] * b.get("form_period", 1.0) ** self.form
+        base = BOSS_LOOKS[self.key]
+        tints = base.get("form_tints", [{}])
+        self.look = dict(base)
+        self.look.update(tints[min(self.form, len(tints) - 1)])
+
+    # --- flight and attacks -------------------------------------------------
+
+    def _move(self, dt, game):
+        if self.state == "enter":
+            self.x -= 110 * dt
+            if self.x <= self.target_x:
+                self.set_state("armored")
+                game.on_boss_ready()
+        else:
+            self.move_t += dt
+            self.y = HEIGHT * 0.5 + math.sin(self.move_t * 0.4) * HEIGHT * 0.12
+            self.x = self.target_x + math.sin(self.move_t * 0.7) * 18
+
+    def update(self, dt, game):
+        super().update(dt, game)
+        if self.sweep_t > 0:
+            self.sweep_t -= dt
+            self.sweep_emit -= dt
+            while self.sweep_emit <= 0 and self.sweep_t > 0:
+                self.sweep_emit += 0.06
+                frac = 1.0 - max(0.0, self.sweep_t) / TITAN_SWEEP_TIME
+                a = math.pi - TITAN_SWEEP_ARC / 2 + TITAN_SWEEP_ARC * frac
+                for off in (-0.12, 0.0, 0.12):
+                    game.enemy_fire(self.x, self.y, a + off, BOSS_SHOT_SPEED)
+        if self.beam_t > 0:
+            self.beam_t = max(0.0, self.beam_t - dt)
+
+    def damage(self, amount):
+        """Like an Interceptor, but a lethal blow on a non-final form makes the
+        Titan rise again instead of dying ("revive")."""
+        result = super().damage(amount)
+        if result == "dead" and self.form + 1 < self.form_count:
+            self.form += 1
+            self._apply_form()
+            self.heart = 1
+            self.heart_hp = self.heart_hp_max
+            self.hit_flash = 1.0
+            self.beam_t = self.sweep_t = 0.0
+            self.set_state("stagger")
+            return "revive"
+        if result == "dead":
+            self.beam_t = self.sweep_t = 0.0     # no ray frozen over the death throes
+        return result
+
+    def _beam(self, game):
+        """Lock the death ray onto the nearest ship and start its telegraph."""
+        ship = game.target(self.x, self.y)
+        self.beam_angle = math.atan2(ship.y - self.y, ship.x - self.x)
+        self.beam_t = TITAN_BEAM_CHARGE + TITAN_BEAM_FIRE
+
+    def _sweep(self, game):
+        self.sweep_t = TITAN_SWEEP_TIME
+        self.sweep_emit = 0.0
+
+    def _caustic(self, game):
+        for k in (-1, 0, 1):
+            game.spawn_enemy("mine", self.x - self.radius * 0.6, self.y,
+                             {"vy": 70 * k, "drift": 0.8, "phase": k * 2.0})
+
+    def _radial(self, game):                         # a denser ring than an Interceptor
+        n = 22 + 2 * self.form
+        self.spin += 0.19
+        for i in range(n):
+            game.enemy_fire(self.x, self.y, self.spin + i * math.tau / n, BOSS_SHOT_SPEED)
+
+    def _beam_firing(self):
+        return 0.0 < self.beam_t <= TITAN_BEAM_FIRE
+
+    def beam_hit(self, x, y, r):
+        """True if (x, y) with radius r lies in the live death ray. The ray is
+        a half-line from the core along `beam_angle`."""
+        if not self._beam_firing():
+            return False
+        ca, sa = math.cos(self.beam_angle), math.sin(self.beam_angle)
+        dx, dy = x - self.x, y - self.y
+        if dx * ca + dy * sa < 0:                    # behind the muzzle
+            return False
+        return abs(-dx * sa + dy * ca) < TITAN_BEAM_HALF + r
+
+    def hit_test(self, x, y, r):
+        reach = self.radius * 0.72 + r               # the body, not the tentacle reach
+        return (x - self.x) ** 2 + (y - self.y) ** 2 < reach * reach
+
+    # --- drawing ------------------------------------------------------------
+
+    def draw(self, surf):
+        x, y, r = self.x, self.y, self.radius
+        look = self.look
+        white = self.hit_flash > 0 and self.state == "exposed"
+        rot = self.t * 0.10
+        spread = self.open * 0.22 * r
+
+        # the pulsing orange "winds" behind the colossus
+        halo = 0.5 + 0.5 * math.sin(self.t * 1.6)
+        blit_glow(surf, x, y, int(r * 2.1), C_NEON_ORANGE, 0.10 + 0.07 * halo)
+
+        self._draw_tentacles(surf, x, y, r, look)
+
+        # the spiny body: three interleaved rings of veined petals
+        petal_col = (255, 255, 255) if white else look["petal"]
+        dark = look["petal_dark"]
+        n = look["petals"]
+        swirl, tip = look["swirl"], look["tip"]
+        for layer in (0, 1, 2):
+            scale = (1.15, 0.84, 0.56)[layer]
+            outer = r * scale + spread * (1.0 - layer * 0.3)
+            inner = r * (0.16 - layer * 0.02)
+            width = r * (0.15 - layer * 0.03)
+            off = layer * math.pi / n
+            turn = rot * (1.0 if layer == 0 else (-0.6 if layer == 1 else 0.4))
+            edge = lerp_color(petal_col, dark, layer * 0.25)
+            for k in range(n):
+                a = k * math.tau / n + off + turn
+                neon_polygon(surf, edge,
+                             petal_points(x, y, a, inner, outer, width, swirl, tip), 2, dark)
+                if layer == 0:
+                    v1 = (x + math.cos(a + swirl * 0.9) * outer * 0.9,
+                          y + math.sin(a + swirl * 0.9) * outer * 0.9)
+                    pygame.draw.line(surf, look["vein"],
+                                     (x + math.cos(a) * inner, y + math.sin(a) * inner), v1, 1)
+
+        # the glowing core, hotter as a pod lies exposed
+        pulse = 0.5 + 0.5 * math.sin(self.t * 7)
+        core_col = lerp_color(C_HEART, C_NEON_YELLOW, 0.3 * pulse)
+        blit_glow(surf, x, y, int(r * (0.5 + self.open * 0.4)), core_col, 0.35 + 0.35 * pulse)
+        pygame.draw.circle(surf, core_col, (int(x), int(y)), int(r * 0.2))
+
+        self._draw_pods(surf, x, y, r, look, rot, pulse)
+        self._draw_beam(surf, x, y, r, look)
+
+    def _draw_tentacles(self, surf, x, y, r, look):
+        col = look.get("tentacle", look["petal"])
+        dark = look.get("tentacle_dark", look["petal_dark"])
+        segs = 5
+        for i in range(TITAN_TENTACLES):
+            base = (i / TITAN_TENTACLES) * math.tau + 0.4
+            px = x + math.cos(base) * r * 0.55
+            py = y + math.sin(base) * r * 0.55
+            for s in range(1, segs + 1):
+                t = s / segs
+                wave = math.sin(self.t * 1.3 + i * 1.7 + s * 0.7) * 0.28 * t
+                ang = base + 0.5 * t + wave          # curls outward and sways
+                seglen = r * 0.5 * (1.0 - 0.1 * t)
+                nx = px + math.cos(ang) * seglen
+                ny = py + math.sin(ang) * seglen
+                w = max(1, int(r * 0.11 * (1.0 - t)))
+                pygame.draw.line(surf, dark, (px, py), (nx, ny), w + 4)
+                pygame.draw.line(surf, col, (px, py), (nx, ny), w)
+                px, py = nx, ny
+            blit_glow(surf, px, py, int(r * 0.12), C_NEON_ORANGE, 0.5)
+            pygame.draw.circle(surf, col, (int(px), int(py)), max(2, int(r * 0.05)))
+
+    def _draw_pods(self, surf, x, y, r, look, rot, pulse):
+        n = look.get("pods", self.hearts)
+        pod_col = look.get("pod", C_NEON_RED)
+        dead_col = look.get("pod_dead", (70, 60, 56))
+        pr = int(r * 0.16)
+        active = self.heart - 1                      # 0-based: the pod being broken
+        exposed = self.state == "exposed"
+        for i in range(n):
+            a = i * math.tau / n - math.pi / 2 + rot * 0.5
+            px = int(x + math.cos(a) * r * 0.82)
+            py = int(y + math.sin(a) * r * 0.82)
+            if i < active:                           # spent
+                pygame.draw.circle(surf, dead_col, (px, py), pr, 2)
+            elif i == active:                        # the live target
+                glow = 0.45 + (0.45 * pulse if exposed else 0.1)
+                size = pr + (int(3 * pulse) if exposed else 0)
+                blit_glow(surf, px, py, int(pr * 2.4), pod_col, glow)
+                pygame.draw.circle(surf, pod_col, (px, py), size)
+                if exposed:
+                    pygame.draw.circle(surf, (255, 240, 180), (px, py), max(2, size // 2))
+            else:                                    # still dormant
+                blit_glow(surf, px, py, int(pr * 1.3), pod_col, 0.18)
+                pygame.draw.circle(surf, lerp_color(pod_col, dead_col, 0.4), (px, py), pr)
+                pygame.draw.circle(surf, pod_col, (px, py), pr, 1)
+
+    def _draw_beam(self, surf, x, y, r, look):
+        if self.beam_t <= 0:
+            return
+        beam_col = look.get("pod", C_NEON_RED)
+        ca, sa = math.cos(self.beam_angle), math.sin(self.beam_angle)
+        ex, ey = x + ca * WIDTH * 1.6, y + sa * WIDTH * 1.6
+        if not self._beam_firing():                  # the charge telegraph
+            if int(self.t * 20) % 2 == 0:
+                pygame.draw.line(surf, C_NEON_RED, (x, y), (ex, ey), 2)
+            blit_glow(surf, x, y, int(r * 0.5), C_NEON_RED, 0.3 + 0.3 * (self.t % 1))
+            return
+        w = int(TITAN_BEAM_HALF * (1.4 + 0.3 * math.sin(self.t * 40)))
+        pygame.draw.line(surf, lerp_color(beam_col, (0, 0, 0), 0.4), (x, y), (ex, ey), w * 2)
+        pygame.draw.line(surf, beam_col, (x, y), (ex, ey), w)
+        pygame.draw.line(surf, (255, 255, 255), (x, y), (ex, ey), max(2, w // 3))
+        blit_glow(surf, x, y, int(r * 0.7), beam_col, 0.8)
+
+
+def make_boss(key, level_index):
+    """The boss of a sector: the Titan finale, or a plain Interceptor."""
+    if key == "titan":
+        return Titan(key, level_index)
+    return Interceptor(key, level_index)

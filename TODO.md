@@ -31,24 +31,6 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     dans les locales (comme `difficulty_name` de purr-tage) ; interaction avec
     les records et les succes par secteur (record par difficulte ?).
 
-- [ ] (P1) **Boss final Titan** (apres le secteur 4) — le vrai climax de la
-  campagne : aujourd'hui la victoire tombe quand l'Hydre meurt, le Titan devient
-  l'affrontement ultime qui suit. Reference : `docs/img_src/TITAN.jpg`.
-  - *Direction visuelle* (d'apres l'image) : un enorme coeur spherique herisse
-    d'epines (une rosace demesuree), des **vents orange** qui pulsent, plusieurs
-    **pods rouges lumineux** servant de points faibles, et de longues
-    **tentacules articulees** qui s'etirent et balaient. Il ecrase les
-    Intercepteurs par la taille (remplit une large part de l'ecran).
-  - *Gameplay* : multi-phases (detruire les pods rouges un par un), rayon bien
-    plus grand, nouveaux motifs d'attaque (balayage de tentacules, crachat de
-    caustique, lachers d'essaims).
-  - *A definir* : entree `titan` dans `BOSSES` (`balance.py`) + `BOSS_LOOKS`
-    (`ui.py`) ; sans doute une **nouvelle classe** (ou extension d'`Interceptor`)
-    pour les tentacules articulees ; 5e rencontre et flux de campagne
-    (`main.py` / `loop.py`, la victoire passe apres le Titan) ; nom et texte de
-    victoire dans les locales (mettre a jour `victory.sub`) ; lien avec le cran
-    de difficulte « Titan ».
-
 - [ ] (P1) **Boss : nouveaux motifs et petales a cibler** (retour de jeu,
   rapports `20261021-163941` « changer le paterne des boss » et
   `20261021-164230` « utiliser le paterne des thargo d'elite avec les petals a
@@ -97,3 +79,104 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     evoluer le vaisseau au hangar au-dela des ameliorations chiffrees ; place sur
     la **carte de la Voie lactee** ; suite naturelle de **Loots et
     ameliorations**.
+
+## Fait
+
+- [x] (P1) **Boss final Titan** — le climax de la campagne, apres l'Hydre. Un
+  **5e secteur cache** (absent du choix des secteurs) s'enchaine tout seul une
+  fois le Maelstrom libere ; la victoire tombe desormais a la mort du Titan.
+  Reference : `docs/img_src/TITAN.jpg`.
+  - *Le colosse* (`Titan`, sous-classe d'`Interceptor` dans `enemies.py`) :
+    deux fois plus grand qu'un Intercepteur, un coeur epineux herisse, de
+    longues **tentacules articulees** qui ondulent, des **pods rouges** comme
+    points faibles (detruits un a un, mappes sur le mecanisme de coeurs) et des
+    **vents orange** qui pulsent.
+  - *Grosses attaques* : un **rayon de la mort** (`beam`, telegraphie puis
+    letal, collision par demi-droite dans `combat.py`), un **balayage** de
+    tentacules (`sweep`, un mur de tirs) et un **crachat caustique** (`caustic`,
+    une gerbe de mines) ; tirs plus denses que les Intercepteurs.
+  - *Il renait* : quand tous ses pods tombent, le Titan **se releve plus fort
+    et d'une autre couleur** (`forms` / `form_hp` / `form_period` dans
+    `BOSSES`, teintes dans `BOSS_LOOKS`) ; seule la mort de la derniere forme
+    gagne la partie.
+  - *Flux* : entree `titan` dans `BOSSES` + `BOSS_LOOKS` + `LEVEL_LOOKS` +
+    `MUSIC` (piste `boss_titans`, enfin branchee) ; 5e secteur `LEVELS` marque
+    `finale` ; fabrique `make_boss` (reprise aussi par le client co-op) ;
+    nom (« Taranis ») et textes dans les locales, `victory.sub` mis a jour.
+
+- [x] (P3) **Multijoueur a 2 en LAN** — branche `feature/coop-lan`, **teste et
+  valide sur deux machines**. **Cooperatif**, desktop seulement (carte
+  « Coop LAN » de l'accueil, absente sous pygbag).
+  - **Hote autoritaire** plutot que lockstep : l'hote simule comme en solo avec
+    un 2e vaisseau pilote par le reseau, et envoie un instantane JSON par image
+    (`session/coop.py`) ; le client envoie ses entrees, dessine et rejoue les
+    effets (`Combat.emit`). Aucune purge du RNG necessaire. Transport repris de
+    purr-tage (`maelstrom/net.py` : TCP 50517 + annonce UDP 50518).
+  - **Salon** `menu.lobby()` : heberger, liste des parties annoncees, saisie
+    d'IP ; poignee de main `hello` / `welcome` avec numero de protocole.
+  - **Regles** : vaisseau abattu de retour apres `COOP_RESPAWN` s, essai perdu
+    quand les deux sont abattus, Thargoides visant le plus proche, pause qui ne
+    fige rien, seul l'hote decide apres une mort ou une victoire.
+  - **Meta** : chacun son vaisseau, son hangar, ses equipements ; meta-alliage
+    de l'equipe verse aux deux ; records et deblocages solo intouches ; l'hote
+    choisit parmi ses secteurs liberes.
+
+- [x] (P2) **Musique synthwave** — leve le « pas de son ». `maelstrom/audio.py`
+  streame une piste a la fois (`pygame.mixer.music`), table `MUSIC` et assets
+  `.ogg` par secteur / boss / jingle, volume dans Options, mise en pause sur
+  perte de focus. Un changement de piste n'est plus une coupure seche mais un
+  pont fondu (`MUSIC_CROSSFADE` : fondu de sortie puis d'entree, un seul flux) :
+  plus d'a-coup a l'arrivee de l'Intercepteur (retour de jeu `20261021-124702`).
+  *Effets sonores ecartes* : un essai de SFX proceduraux noyait la musique
+  (retour `20261022-202900`) ; le jeu reste a la musique seule.
+
+- [x] (P1) **F8 partout** — le formulaire de rapport s'ouvre a F8 sur chaque
+  ecran hors secteur (accueil, vaisseau, secteurs, hangar, options, salon),
+  plus seulement en partie. Le formulaire est sorti dans `maelstrom/bugform.py`
+  (classe `BugForm`, utilisable sans instance `Game`) ; `session/bug_form.py`
+  n'en est plus que l'adaptateur du jeu (qui repasse par la pause a la
+  fermeture). Chaque boucle de `menu.py` appelle `_bug_intercept` / `_bug_overlay` ;
+  le rapport note l'ecran d'ou il part (`screen: <nom>`). Bureau seulement.
+
+- [x] (P1) **Remontee des bugs vers un relais Cloudflare** — sur le modele de
+  purr-tage : `maelstrom/bugsend.py` (envoi HTTPS en tache de fond, boite
+  `saves/bugs/outbox/` rejouee au lancement, `send.log`, `certifi`), une case
+  « Envoyer le rapport » dans le formulaire (consentement memorise dans
+  `prefs.json`), `BUG_REPORT_URL` dans `settings/` (depassable par
+  `MAELSTROM_REPORT_URL`, actif seulement une fois empaquete). Le relais est un
+  Cloudflare Worker dans `relay/` (Discord), a deployer sur le compte
+  RosePounce. Bureau seulement.
+
+- [x] **Ecran du choix du vaisseau : mise en page** (retour de jeu, rapport
+  `20261021-163755`) — le libelle « Lancer la campagne (Entree) » debordait de son
+  bouton (298 px pour 220) ; le sous-titre passait sous les cartes ; la silhouette
+  du Type-10 sortait de sa carte et du nom ; « Mamba » etait ecrit plus gros que
+  les autres noms ; les boutons recouvraient la ligne de version. Cartes
+  descendues sous le sous-titre, silhouettes mises a l'echelle de leur cadre
+  (`_draw_ship_shape`), une seule taille de nom, boutons elargis et remontes.
+
+- [x] (P1) **Choix du vaisseau de depart** — ecran avant la campagne (`menu.ships()`),
+  4 chasseurs aux profils distincts : **Krait Mk II** (polyvalent), **Alliance
+  Chieftain** (agile, coque solide), **Type-10 Defender** (tank lent, hitbox
+  elargie), **Mamba** (glass cannon rapide). Profils dans `SHIPS`
+  (`balance.py`), silhouettes dans `SHIP_SHAPES` (`player.py`), stats / hitbox /
+  vitesse / arme de depart appliquees par `Ship`, choix memorise dans la meta
+  (`meta["ship"]`), noms et descriptions dans les locales (`ships.*`).
+
+- [x] **Suivi souris : decalage sur les gestes rapides** (retour de jeu) — le
+  drag que le plafond ne consommait pas etait jete a chaque frame ; il est
+  desormais conserve (`Ship.update`) et rattrape sur les frames suivantes, et
+  `DRAG_SPEED_CAP` passe de 1.8 a 3.5. Plus de decrochage permanent du pointeur.
+
+- [x] **Plus d'info sur les bonus / malus** (retour de jeu) — **legende dans la
+  pause** (deux colonnes BONUS / MALUS avec une description par conteneur) et
+  **effet chiffre dans le HUD** (« SURCHARGE x1,7 », « CAUSTIQUE -coque »).
+  Descriptions `info` et token `tag` dans les locales (`pickups.*`), aides
+  `i18n.pickup_info` / `pickup_tag`, legende dans `Hud._draw_legend`.
+
+- [x] **Glitch du boss a l'arrivee** (retour de jeu) — l'Intercepteur sautait
+  vers le bas juste avant le combat : en quittant l'etat `enter`, son `y` passait
+  d'un coup a `0.47H + sin(self.t*0.55)*0.26H`, or `self.t` avait defile pendant
+  toute l'entree (phase du sinus arbitraire). Corrige par une horloge de
+  mouvement `move_t` demarrant a 0 a l'arrivee, avec la position d'entree alignee
+  sur le centre du balancement : transition sans saut (0 px).

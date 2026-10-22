@@ -185,6 +185,15 @@ CAUSTIC_CLOUD = {"radius": 62, "time": 3.2, "stain": 1.5}
 #   aimed   a fan of shots at the ship;     radial  a ring of shots;
 #   spiral  a rotating stream;              swarm   it releases Thargons;
 #   mines   it drops caustic mines.
+# The Titan (the campaign finale, boss of the hidden last sector) is a far
+# larger colossus: its `hearts` are the red PODS struck one by one, and it
+# adds three patterns of its own: `sweep` (a wall of fire whipped across the
+# player's side by its tentacles), `caustic` (a spit of caustic mines) and
+# `beam` (a telegraphed DEATH RAY that scythes across the screen). It also
+# does not die at once: `forms` is how many times it rises -- each time all
+# its pods are destroyed it comes back, recoloured (see BOSS_LOOKS), with its
+# pods' health times `form_hp` and its attacks `form_period` as fast. Only the
+# last form's death wins the fight.
 BOSSES = {
     "cyclops":  {"hearts": 2, "heart_hp": 600, "radius": 56, "period": 1.4,
                  "patterns": ("aimed", "radial", "aimed", "swarm")},
@@ -195,6 +204,10 @@ BOSSES = {
     "hydra":    {"hearts": 5, "heart_hp": 1350, "radius": 70, "period": 1.0,
                  "patterns": ("spiral", "aimed", "radial", "swarm", "mines",
                               "spiral")},
+    "titan":    {"hearts": 6, "heart_hp": 1100, "radius": 118, "period": 0.9,
+                 "forms": 2, "form_hp": 1.3, "form_period": 0.82,
+                 "patterns": ("sweep", "beam", "radial", "caustic", "aimed",
+                              "spiral", "sweep", "beam", "swarm")},
 }
 BOSS_ARMORED_TIME = 5.0
 BOSS_EXPOSED_TIME = 6.5
@@ -207,6 +220,7 @@ BOSS_ALLOY = 30
 BOSS_SHUTDOWN = 2.0            # shutdown wave of a destroyed heart (dampers apply)
 BOSS_WARNING = 3.2             # "Interceptor approaching" before it shows
 BOSS_DEATH_TIME = 2.4          # explosions before the "sector cleared" screen
+BOSS_BEAM_DAMAGE = 42          # a hit of the Titan's death ray (respects i-frames)
 
 
 # ----------------------------------------------------------------------
@@ -218,6 +232,9 @@ BOSS_DEATH_TIME = 2.4          # explosions before the "sector cleared" screen
 # `seed`: the same sector always plays the same, which is what lets a
 # die-and-retry be learned. `gap` = seconds between two waves at the start,
 # shrinking by GAP_RAMP towards the end.
+# The last sector is the `finale`: the Titan. It is NOT shown in the sector
+# picker -- it is reached straight after the Maelstrom is cleared (the "next"
+# that follows the Hydra), and only clearing it wins the campaign.
 LEVELS = (
     {"key": "merope", "duration": 75, "boss": "cyclops", "scroll": 140,
      "gap": 2.0, "seed": 11,
@@ -235,6 +252,10 @@ LEVELS = (
      "gap": 1.45, "seed": 41,
      "patterns": {"swarm_v": 3, "swarm_wave": 2, "scout_trio": 3,
                   "marauder": 3, "berserker": 3, "mines": 2, "asteroids": 1}},
+    {"key": "titan", "duration": 35, "boss": "titan", "scroll": 210,
+     "gap": 1.7, "seed": 53, "finale": True,
+     "patterns": {"scout_trio": 2, "marauder": 3, "berserker": 2,
+                  "swarm_v": 2, "mines": 2}},
 )
 GAP_RAMP = 0.35
 BOSS_CLEAR_WAIT = 5.0          # max wait for the last ships before the boss
