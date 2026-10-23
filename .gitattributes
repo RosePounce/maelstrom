@@ -1,0 +1,11 @@
+# Text files: UTF-8, LF line endings in the repository and the working tree.
+* text=auto eol=lf
+
+# Binary assets: never touched by line-ending conversion.
+*.png  binary
+*.jpg  binary
+*.webp binary
+*.ogg  binary
+*.mp3  binary
+*.ttf  binary
+*.ico  binary
