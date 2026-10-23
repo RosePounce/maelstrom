@@ -74,14 +74,16 @@
     "merope": { "name": "Merope Belt", "lore": "Asteroid field, the first swarms." },
     "oracle": { "name": "Oracle Ruins", "lore": "Station debris. Marauders and mines." },
     "pleiades": { "name": "Pleiades Nebula", "lore": "Berserkers guard the nebula." },
-    "maelstrom": { "name": "Heart of the Maelstrom", "lore": "The nest. Everything they have." }
+    "maelstrom": { "name": "Heart of the Maelstrom", "lore": "The nest. Everything they have." },
+    "titan": { "name": "Taranis, the Titan", "lore": "The heart of the invasion. Destroy its pods, one by one." }
   },
 
   "bosses": {
     "cyclops": "Cyclops",
     "basilisk": "Basilisk",
     "medusa": "Medusa",
-    "hydra": "Hydra"
+    "hydra": "Hydra",
+    "titan": "Taranis"
   },
 
   "weapons": {
@@ -137,6 +139,8 @@
     "boss_hearts": "{name}   heart {heart}/{hearts}",
     "boss_exposed": "HEART EXPOSED",
     "heart_down": "HEART DESTROYED",
+    "titan_warning": "THE TITAN RISES",
+    "titan_revive": "IT RISES AGAIN",
     "checkpoint": "Checkpoint saved"
   },
 
@@ -172,7 +176,7 @@
 
   "victory": {
     "title": "THE PLEIADES ARE FREE",
-    "sub": "The Hydra has fallen. The Maelstrom falls silent... for now."
+    "sub": "Taranis, the Titan, has fallen. The Maelstrom goes dark... for now."
   },
 
   "bug": {

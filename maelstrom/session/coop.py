@@ -26,7 +26,7 @@ from settings.balance import (
     DEFAULT_SHIP, HANGAR, LEVELS, MISSILE_MAX, SHIPS, WEAPON_MAX_LEVEL, WEAPONS,
 )
 from settings.ui import SHAKE_DECAY
-from maelstrom.enemies import Enemy, Interceptor, asteroid_shape
+from maelstrom.enemies import Enemy, asteroid_shape, make_boss
 from maelstrom.pickups import Pickup
 from maelstrom.projectiles import CausticCloud, Missile, Shot
 from maelstrom.storage import log
@@ -137,7 +137,9 @@ def _enemy(e):
 
 def _boss(b):
     return [b.key, _r(b.x), _r(b.y), b.state, _r(b.state_t, 2), _r(b.t, 2),
-            _r(b.open, 3), _r(b.hit_flash, 2), b.heart, _r(b.heart_hp)]
+            _r(b.open, 3), _r(b.hit_flash, 2), b.heart, _r(b.heart_hp),
+            getattr(b, "form", 0), _r(getattr(b, "beam_t", 0.0), 2),
+            _r(getattr(b, "beam_angle", 0.0), 2)]
 
 
 def _mirror_enemy(kind, radius, seed):
@@ -324,10 +326,15 @@ class Coop:
             self.boss = None
         else:
             if self.boss is None or self.boss.key != b[0]:
-                self.boss = Interceptor(b[0], self.level_index)
+                self.boss = make_boss(b[0], self.level_index)
             boss = self.boss
             (_, boss.x, boss.y, boss.state, boss.state_t, boss.t, boss.open,
-             boss.hit_flash, boss.heart, boss.heart_hp) = b
+             boss.hit_flash, boss.heart, boss.heart_hp) = b[:10]
+            if hasattr(boss, "form") and len(b) > 10:
+                if boss.form != b[10]:               # the Titan recolours on each rebirth
+                    boss.form = b[10]
+                    boss._apply_form()
+                boss.beam_t, boss.beam_angle = b[11], b[12]   # show its death ray
 
         self.shots = [Shot(x, y, vx, vy, 0, SHOT_KINDS[k], radius=r)
                       for k, x, y, vx, vy, r in m["shots"]]

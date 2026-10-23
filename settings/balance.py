@@ -153,23 +153,23 @@ def hangar_cost(key, level):
 # hp, collision radius, speed, contact damage, meta-alloy, drop chance;
 # `fire` = seconds between two shots, `shot_speed` of those shots.
 ENEMIES = {
-    "swarm":     {"hp": 5, "radius": 9, "speed": 250, "contact": 12,
+    "swarm":     {"hp": 5, "radius": 9, "speed": 250, "contact": 14,
                   "alloy": 1, "drop": 0.05},
     "scout":     {"hp": 16, "radius": 14, "speed": 140, "contact": 18,
-                  "alloy": 2, "drop": 0.22, "fire": 1.4, "shot_speed": 270},
-    "marauder":  {"hp": 26, "radius": 16, "speed": 170, "dash": 600,
+                  "alloy": 2, "drop": 0.22, "fire": 1.25, "shot_speed": 300},
+    "marauder":  {"hp": 26, "radius": 16, "speed": 170, "dash": 680,
                   "contact": 26, "alloy": 3, "drop": 0.30},
     "berserker": {"hp": 70, "radius": 21, "speed": 120, "contact": 30,
-                  "alloy": 6, "drop": 0.65, "fire": 1.1, "shot_speed": 240,
+                  "alloy": 6, "drop": 0.65, "fire": 0.95, "shot_speed": 285,
                   "stay": 11.0},
     "mine":      {"hp": 10, "radius": 12, "speed": 0, "contact": 20,
                   "alloy": 1, "drop": 0.0},
     "asteroid":  {"hp": 40, "radius": 26, "speed": 0, "contact": 25,
                   "alloy": 0, "drop": 0.12},
 }
-ENEMY_SHOT_DAMAGE = 14
-LEVEL_HP_SCALE = 0.18          # enemy hp +18 % per sector
-LEVEL_DAMAGE_SCALE = 0.15      # enemy damage +15 % per sector
+ENEMY_SHOT_DAMAGE = 18
+LEVEL_HP_SCALE = 0.20          # enemy hp +20 % per sector
+LEVEL_DAMAGE_SCALE = 0.18      # enemy damage +18 % per sector
 CONTACT_SELF_DAMAGE = 30       # what a ship that rams the player takes
 # A caustic mine bursts into a cloud: it stains the hull while inside it
 CAUSTIC_CLOUD = {"radius": 62, "time": 3.2, "stain": 1.5}
@@ -185,28 +185,42 @@ CAUSTIC_CLOUD = {"radius": 62, "time": 3.2, "stain": 1.5}
 #   aimed   a fan of shots at the ship;     radial  a ring of shots;
 #   spiral  a rotating stream;              swarm   it releases Thargons;
 #   mines   it drops caustic mines.
+# The Titan (the campaign finale, boss of the hidden last sector) is a far
+# larger colossus: its `hearts` are the red PODS struck one by one, and it
+# adds three patterns of its own: `sweep` (a wall of fire whipped across the
+# player's side by its tentacles), `caustic` (a spit of caustic mines) and
+# `beam` (a telegraphed DEATH RAY that scythes across the screen). It also
+# does not die at once: `forms` is how many times it rises -- each time all
+# its pods are destroyed it comes back, recoloured (see BOSS_LOOKS), with its
+# pods' health times `form_hp` and its attacks `form_period` as fast. Only the
+# last form's death wins the fight.
 BOSSES = {
-    "cyclops":  {"hearts": 2, "heart_hp": 600, "radius": 56, "period": 1.4,
+    "cyclops":  {"hearts": 2, "heart_hp": 650, "radius": 56, "period": 1.3,
                  "patterns": ("aimed", "radial", "aimed", "swarm")},
-    "basilisk": {"hearts": 3, "heart_hp": 850, "radius": 60, "period": 1.25,
+    "basilisk": {"hearts": 3, "heart_hp": 950, "radius": 60, "period": 1.15,
                  "patterns": ("aimed", "radial", "swarm", "spiral")},
-    "medusa":   {"hearts": 4, "heart_hp": 1100, "radius": 64, "period": 1.1,
+    "medusa":   {"hearts": 4, "heart_hp": 1350, "radius": 64, "period": 1.0,
                  "patterns": ("radial", "spiral", "mines", "aimed", "swarm")},
-    "hydra":    {"hearts": 5, "heart_hp": 1350, "radius": 70, "period": 1.0,
+    "hydra":    {"hearts": 5, "heart_hp": 1650, "radius": 70, "period": 0.92,
                  "patterns": ("spiral", "aimed", "radial", "swarm", "mines",
                               "spiral")},
+    "titan":    {"hearts": 6, "heart_hp": 1100, "radius": 118, "period": 0.9,
+                 "forms": 2, "form_hp": 1.3, "form_period": 0.82,
+                 "patterns": ("sweep", "beam", "radial", "caustic", "aimed",
+                              "spiral", "sweep", "beam", "swarm")},
 }
 BOSS_ARMORED_TIME = 5.0
-BOSS_EXPOSED_TIME = 6.5
-BOSS_ARMOR = 0.12
+BOSS_EXPOSED_TIME = 6.0        # a shorter opening: the player must make it count
+BOSS_ARMOR = 0.09             # less chip damage gets through the closed petals
 BOSS_STAGGER = 2.2
-BOSS_CONTACT = 40
-BOSS_SHOT_SPEED = 240
+BOSS_CONTACT = 46
+BOSS_SHOT_SPEED = 260
 BOSS_ALLOY_PER_HEART = 8
 BOSS_ALLOY = 30
 BOSS_SHUTDOWN = 2.0            # shutdown wave of a destroyed heart (dampers apply)
 BOSS_WARNING = 3.2             # "Interceptor approaching" before it shows
 BOSS_DEATH_TIME = 2.4          # explosions before the "sector cleared" screen
+BOSS_BEAM_DAMAGE = 42          # a hit of the Titan's death ray (respects i-frames)
 
 
 # ----------------------------------------------------------------------
@@ -218,6 +232,9 @@ BOSS_DEATH_TIME = 2.4          # explosions before the "sector cleared" screen
 # `seed`: the same sector always plays the same, which is what lets a
 # die-and-retry be learned. `gap` = seconds between two waves at the start,
 # shrinking by GAP_RAMP towards the end.
+# The last sector is the `finale`: the Titan. It is NOT shown in the sector
+# picker -- it is reached straight after the Maelstrom is cleared (the "next"
+# that follows the Hydra), and only clearing it wins the campaign.
 LEVELS = (
     {"key": "merope", "duration": 75, "boss": "cyclops", "scroll": 140,
      "gap": 2.0, "seed": 11,
@@ -235,6 +252,10 @@ LEVELS = (
      "gap": 1.45, "seed": 41,
      "patterns": {"swarm_v": 3, "swarm_wave": 2, "scout_trio": 3,
                   "marauder": 3, "berserker": 3, "mines": 2, "asteroids": 1}},
+    {"key": "titan", "duration": 35, "boss": "titan", "scroll": 210,
+     "gap": 1.7, "seed": 53, "finale": True,
+     "patterns": {"scout_trio": 2, "marauder": 3, "berserker": 2,
+                  "swarm_v": 2, "mines": 2}},
 )
 GAP_RAMP = 0.35
 BOSS_CLEAR_WAIT = 5.0          # max wait for the last ships before the boss

@@ -76,14 +76,16 @@
     "merope": { "name": "Ceinture de Merope", "lore": "Champ d'asteroides, premiers essaims." },
     "oracle": { "name": "Ruines de l'Oracle", "lore": "Debris de la station. Maraudeurs et mines." },
     "pleiades": { "name": "Nebuleuse des Pleiades", "lore": "Les Berserkers gardent la nebuleuse." },
-    "maelstrom": { "name": "Coeur du Maelstrom", "lore": "Le nid. Tout ce qu'ils ont." }
+    "maelstrom": { "name": "Coeur du Maelstrom", "lore": "Le nid. Tout ce qu'ils ont." },
+    "titan": { "name": "Taranis, le Titan", "lore": "Le coeur de l'invasion. Detruire ses pods, un a un." }
   },
 
   "bosses": {
     "cyclops": "Cyclope",
     "basilisk": "Basilic",
     "medusa": "Meduse",
-    "hydra": "Hydre"
+    "hydra": "Hydre",
+    "titan": "Taranis"
   },
 
   "weapons": {
@@ -139,6 +141,8 @@
     "boss_hearts": "{name}   coeur {heart}/{hearts}",
     "boss_exposed": "COEUR EXPOSE",
     "heart_down": "COEUR DETRUIT",
+    "titan_warning": "LE TITAN SE DRESSE",
+    "titan_revive": "IL RENAIT",
     "checkpoint": "Point de reprise enregistre"
   },
 
@@ -174,7 +178,7 @@
 
   "victory": {
     "title": "LES PLEIADES SONT LIBEREES",
-    "sub": "L'Hydre est tombee. Le Maelstrom se tait... pour l'instant."
+    "sub": "Taranis, le Titan, est tombe. Le Maelstrom s'eteint... pour l'instant."
   },
 
   "bug": {

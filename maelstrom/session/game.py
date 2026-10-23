@@ -35,7 +35,7 @@ from settings.ui import (
 from maelstrom import audio, i18n, screen
 from maelstrom.backdrop import Backdrop
 from maelstrom.effects import Particle
-from maelstrom.enemies import Enemy, Interceptor
+from maelstrom.enemies import Enemy, make_boss
 from maelstrom.levels import build_script
 from maelstrom.player import Ship
 from maelstrom.storage import base_loadout, log, read_meta, write_meta
@@ -148,7 +148,8 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
     def enter_warning(self, checkpoint=True):
         self.phase, self.phase_t = "warning", 0.0
         boss = self.level["boss"]
-        self.show_banner(["t", "banner.boss_warning"],
+        title = ["t", "banner.titan_warning"] if boss == "titan" else ["t", "banner.boss_warning"]
+        self.show_banner(title,
                          ["t", "banner.boss_warning_sub",
                           {"name": ["boss_name", boss], "hearts": BOSSES[boss]["hearts"]}],
                          C_NEON_RED, BOSS_WARNING)
@@ -316,7 +317,7 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
                     self.enter_warning()
         elif self.phase == "warning":
             if self.phase_t >= BOSS_WARNING:
-                self.boss = Interceptor(self.level["boss"], self.level_index)
+                self.boss = make_boss(self.level["boss"], self.level_index)
                 self.phase, self.phase_t = "boss", 0.0
         elif self.phase == "boss":
             self.boss.update(dt, self)

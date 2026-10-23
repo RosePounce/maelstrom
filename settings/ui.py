@@ -115,6 +115,12 @@ LEVEL_LOOKS = {
         "grid": (80, 255, 170), "sun_top": (120, 255, 180),
         "sun_bot": (30, 120, 90), "landmark": "maelstrom",
     },
+    "titan": {                     # the finale: a seething orange-lit nest
+        "sky_top": (10, 6, 4), "sky_low": (78, 36, 12),
+        "ground_far": (48, 24, 10), "ground_near": (8, 6, 4),
+        "grid": (255, 150, 50), "sun_top": (255, 150, 60),
+        "sun_bot": (255, 90, 40), "landmark": "maelstrom",
+    },
 }
 
 
@@ -130,6 +136,9 @@ LEVEL_LOOKS = {
 # "petal"/"petal_dark" outline and fill, "vein" the central rib, "speck" the
 # mottled bioluminescence (None = none), "eye" a dark central orb when closed
 # (Cyclops) instead of the bright core the others show.
+# The Titan adds "tentacle"/"tentacle_dark" (its articulated limbs), "pod"
+# (the red weak points) with "pod_dead" (a spent one) and "pods" (their
+# count, matching its BOSSES `hearts`).
 BOSS_LOOKS = {
     "cyclops": {                                   # silver-green, a dark eye
         "petals": 8, "swirl": 0.55, "tip": "round",
@@ -150,6 +159,22 @@ BOSS_LOOKS = {
         "petals": 13, "swirl": 0.42, "tip": "spike",
         "petal": (124, 255, 134), "petal_dark": (14, 44, 38),
         "vein": (96, 214, 150), "speck": (156, 255, 96), "eye": None,
+    },
+    "titan": {                                     # the colossus: bronze-green
+        "petals": 16, "swirl": 0.5, "tip": "spike",
+        "petal": (150, 176, 76), "petal_dark": (26, 30, 12),
+        "vein": (255, 168, 48), "speck": (255, 214, 86), "eye": None,
+        "tentacle": (156, 134, 74), "tentacle_dark": (40, 34, 16),
+        "pod": (255, 66, 54), "pod_dead": (70, 60, 56), "pods": 6,
+        # one override per form (index 0 = the colours above, kept as a {});
+        # the Titan recolours to the next on each rebirth (see BOSSES forms).
+        "form_tints": [
+            {},
+            {"petal": (214, 72, 188), "petal_dark": (40, 10, 36),
+             "vein": (120, 236, 255), "speck": (180, 150, 255),
+             "tentacle": (196, 86, 170), "tentacle_dark": (46, 14, 40),
+             "pod": (120, 236, 255), "pod_dead": (66, 56, 70)},
+        ],
     },
 }
 
@@ -196,6 +221,7 @@ MUSIC = {
     "basilisk":  ("boss_cyclops_basilisk", True),
     "medusa":    ("boss_medusa", True),
     "hydra":     ("boss_hydra", True),
+    "titan":     ("boss_titans", True),
     "dead":      ("dead", False),
     "cleared":   ("cleared", False),            # the sector-cleared fanfare
 }

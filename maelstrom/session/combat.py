@@ -9,15 +9,15 @@ import math
 import random
 
 from settings.balance import (
-    BONUSES, BOSS_ALLOY, BOSS_ALLOY_PER_HEART, BOSS_CONTACT, BOSS_DEATH_TIME,
-    BOSS_SHUTDOWN, CAUSTIC_CLOUD, CONTACT_SELF_DAMAGE, ENEMY_SHOT_DAMAGE,
-    LEVEL_DAMAGE_SCALE, MALUSES, MISSILE_MAX, MYSTERY_ALLOY_MULT,
-    MYSTERY_BONUS, PICKUP_RADIUS, WEAPON_MAX_LEVEL,
+    BONUSES, BOSS_ALLOY, BOSS_ALLOY_PER_HEART, BOSS_BEAM_DAMAGE, BOSS_CONTACT,
+    BOSS_DEATH_TIME, BOSS_SHUTDOWN, CAUSTIC_CLOUD, CONTACT_SELF_DAMAGE,
+    ENEMY_SHOT_DAMAGE, LEVEL_DAMAGE_SCALE, MALUSES, MISSILE_MAX,
+    MYSTERY_ALLOY_MULT, MYSTERY_BONUS, PICKUP_RADIUS, WEAPON_MAX_LEVEL,
     WEAPON_MAXED_ALLOY,
 )
 from settings.ui import (
     C_ALLOY, C_BONUS, C_HEART, C_MALUS, C_NEON_CYAN, C_NEON_ORANGE,
-    C_NEON_PURPLE, C_THARG, C_THARG_SHOT, WIDTH,
+    C_NEON_PURPLE, C_NEON_RED, C_THARG, C_THARG_SHOT, WIDTH,
 )
 from maelstrom import i18n
 from maelstrom.effects import FloatText, Particle, Ring
@@ -109,6 +109,9 @@ class Combat:
                         e.hp = 0
             if boss and boss.hit_test(ship.x, ship.y, ship.hitbox):
                 if ship.hit(BOSS_CONTACT):
+                    self.on_ship_hit(ship)
+            if boss and hasattr(boss, "beam_hit") and boss.beam_hit(ship.x, ship.y, ship.hitbox):
+                if ship.hit(BOSS_BEAM_DAMAGE):       # the Titan's death ray
                     self.on_ship_hit(ship)
             for c in self.clouds:
                 if _close(c.x, c.y, ship.x, ship.y, c.radius * 0.8):
@@ -251,6 +254,19 @@ class Combat:
             self.gain_alloys(BOSS_ALLOY_PER_HEART)
             self.show_banner(["t", "banner.heart_down"], "", C_HEART, 1.6)
             for _ in range(2):
+                self.pickups.append(Pickup(b.x - b.radius, b.y, "bonus", weighted(BONUSES)))
+        elif result == "revive":
+            # the Titan falls, then rises again -- stronger and recoloured
+            b = self.boss
+            self.ring(b.x, b.y, 1300, (255, 220, 180), 1.4, 6)
+            self.explode(b.x, b.y, C_HEART, 80, 380)
+            self.shake = 20
+            self.enemy_shots.clear()
+            for ship in self.ships:
+                ship.add_effect("shutdown", BOSS_SHUTDOWN, malus=True)
+            self.gain_alloys(BOSS_ALLOY_PER_HEART)
+            self.show_banner(["t", "banner.titan_revive"], "", C_NEON_RED, 2.0)
+            for _ in range(3):
                 self.pickups.append(Pickup(b.x - b.radius, b.y, "bonus", weighted(BONUSES)))
         elif result == "dead":
             self.phase, self.phase_t = "boss_dying", 0.0

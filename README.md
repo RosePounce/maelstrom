@@ -382,6 +382,7 @@ regle dans Options (retenu dans `prefs.json`).
 | Cyclope, Basilic | `boss_cyclops_basilisk.ogg` | combat des secteurs 1 et 2                    |
 | Meduse           | `boss_medusa.ogg`           | combat du secteur 3                           |
 | Hydre            | `boss_hydra.ogg`            | combat du secteur 4                           |
+| Titan            | `boss_titans.ogg`           | secteur du Titan (approche + combat)          |
 | Mort             | `dead.ogg`                  | ecran de mort                                 |
 | Secteur libere   | `cleared.ogg`               | victoire sur un Intercepteur                  |
 | Generique        | `credits.ogg`               | fin de campagne (secteur 4 libere)            |

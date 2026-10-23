@@ -499,10 +499,13 @@ async def sectors():
     audio.music("title")
     surf = screen.SCREEN = make_screen()
     meta = read_meta()
+    # The finale (the Titan) is not picked here: it follows the last sector.
+    selectable = [i for i in range(len(LEVELS)) if not LEVELS[i].get("finale")]
     w, h = 214, 318
-    rects = _row_rects(len(LEVELS), w, h, 110, 14)
+    rects = _row_rects(len(selectable), w, h, 110, 14)
     cards = []
-    for i, level in enumerate(LEVELS):
+    for slot, i in enumerate(selectable):
+        level = LEVELS[i]
         open_ = i < meta["unlocked"]
         key = level["key"]
         if open_:
@@ -518,10 +521,10 @@ async def sectors():
             lines = [(i18n.t("sectors.locked"), C_TEXT_GRAY),
                      (i18n.t("sectors.locked_sub"), C_TEXT_GRAY)]
             title = i18n.t("sectors.number", n=i + 1)
-        cards.append(Card(rects[i], title, lines, _sector_art(i),
+        cards.append(Card(rects[slot], title, lines, _sector_art(i),
                           LEVEL_LOOKS[key]["grid"], open_))
     back = Button(WIDTH // 2 - BTN_W // 2, HEIGHT - 110, BTN_W, 40, i18n.t("menu.btn_back"))
-    shown = LEVELS[min(meta["unlocked"], len(LEVELS)) - 1]["key"]
+    shown = LEVELS[selectable[min(meta["unlocked"], len(selectable)) - 1]]["key"]
     while True:
         dt = _tick()
         for e in pygame.event.get():
@@ -535,19 +538,19 @@ async def sectors():
                 elif e.key == pygame.K_ESCAPE:
                     return "menu"
                 elif pygame.K_1 <= e.key <= pygame.K_9:
-                    i = e.key - pygame.K_1
-                    if i < len(cards) and cards[i].enabled:
-                        return i
+                    slot = e.key - pygame.K_1
+                    if slot < len(cards) and cards[slot].enabled:
+                        return selectable[slot]
             if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
-                for i, c in enumerate(cards):
+                for slot, c in enumerate(cards):
                     if c.click(e.pos):
-                        return i
+                        return selectable[slot]
                 if back.click(e.pos):
                     return "menu"
         mouse = pygame.mouse.get_pos()
-        for i, c in enumerate(cards):
+        for slot, c in enumerate(cards):
             if c.enabled and c.rect.collidepoint(mouse):
-                shown = LEVELS[i]["key"]
+                shown = LEVELS[selectable[slot]]["key"]
         _background(surf, shown, dt, 165)
         _title(surf, i18n.t("sectors.title"), i18n.t("sectors.subtitle"), 40)
         _balance(surf, meta)
