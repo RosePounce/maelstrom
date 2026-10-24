@@ -195,13 +195,13 @@ CAUSTIC_CLOUD = {"radius": 62, "time": 3.2, "stain": 1.5}
 # pods' health times `form_hp` and its attacks `form_period` as fast. Only the
 # last form's death wins the fight.
 BOSSES = {
-    "cyclops":  {"hearts": 2, "heart_hp": 650, "radius": 56, "period": 1.3,
+    "cyclops":  {"hearts": 2, "heart_hp": 950, "radius": 56, "period": 1.3,
                  "patterns": ("aimed", "radial", "aimed", "swarm")},
-    "basilisk": {"hearts": 3, "heart_hp": 950, "radius": 60, "period": 1.15,
+    "basilisk": {"hearts": 3, "heart_hp": 1600, "radius": 60, "period": 1.15,
                  "patterns": ("aimed", "radial", "swarm", "spiral")},
-    "medusa":   {"hearts": 4, "heart_hp": 1350, "radius": 64, "period": 1.0,
+    "medusa":   {"hearts": 4, "heart_hp": 1700, "radius": 64, "period": 1.0,
                  "patterns": ("radial", "spiral", "mines", "aimed", "swarm")},
-    "hydra":    {"hearts": 5, "heart_hp": 1650, "radius": 70, "period": 0.92,
+    "hydra":    {"hearts": 5, "heart_hp": 1800, "radius": 70, "period": 0.92,
                  "patterns": ("spiral", "aimed", "radial", "swarm", "mines",
                               "spiral")},
     "titan":    {"hearts": 6, "heart_hp": 1100, "radius": 118, "period": 0.9,
@@ -218,7 +218,10 @@ BOSS_SHOT_SPEED = 260
 BOSS_ALLOY_PER_HEART = 8
 BOSS_ALLOY = 30
 BOSS_SHUTDOWN = 2.0            # shutdown wave of a destroyed heart (dampers apply)
-BOSS_WARNING = 3.2             # "Interceptor approaching" before it shows
+BOSS_WARNING = 9.0             # "Interceptor approaching" before it shows. The
+                               # warning jingle runs 9.6 s and the phase ends
+                               # on a MUSIC_CROSSFADE into the boss track, so
+                               # it is heard whole instead of being cut short.
 BOSS_DEATH_TIME = 2.4          # explosions before the "sector cleared" screen
 BOSS_BEAM_DAMAGE = 42          # a hit of the Titan's death ray (respects i-frames)
 
@@ -227,28 +230,34 @@ BOSS_BEAM_DAMAGE = 42          # a hit of the Titan's death ray (respects i-fram
 #  Sectors
 # ----------------------------------------------------------------------
 
-# Each sector scrolls `duration` seconds before its Interceptor. Its waves
-# are drawn from `patterns` (weights) by a random generator SEEDED with
-# `seed`: the same sector always plays the same, which is what lets a
-# die-and-retry be learned. `gap` = seconds between two waves at the start,
-# shrinking by GAP_RAMP towards the end.
+# Each sector scrolls `duration` seconds before its Interceptor: ONE FULL
+# PASS of its track (`MUSIC` in settings/ui.py) -- sector_1 120 s, sector_2
+# and sector_3 150 s, sector_4 180 s. Every phase of an attempt is covered by
+# its own track, played once and not looped: the waves by the sector's, the
+# "Interceptor approaching" by the warning jingle (BOSS_WARNING), the fight
+# by the boss's own 150 s track, which is what the `heart_hp` of BOSSES is
+# tuned against. A track that is replaced must have its sector retimed with
+# it. Its waves are drawn from `patterns` (weights) by a random generator
+# SEEDED with `seed`: the same sector always plays the same, which is what
+# lets a die-and-retry be learned. `gap` = seconds between two waves at the
+# start, shrinking by GAP_RAMP towards the end.
 # The last sector is the `finale`: the Titan. It is NOT shown in the sector
 # picker -- it is reached straight after the Maelstrom is cleared (the "next"
 # that follows the Hydra), and only clearing it wins the campaign.
 LEVELS = (
-    {"key": "merope", "duration": 75, "boss": "cyclops", "scroll": 140,
+    {"key": "merope", "duration": 120, "boss": "cyclops", "scroll": 140,
      "gap": 2.0, "seed": 11,
      "patterns": {"swarm_line": 4, "swarm_wave": 3, "scout_pair": 3,
                   "asteroids": 4, "marauder": 1}},
-    {"key": "oracle", "duration": 85, "boss": "basilisk", "scroll": 160,
+    {"key": "oracle", "duration": 150, "boss": "basilisk", "scroll": 160,
      "gap": 1.75, "seed": 23,
      "patterns": {"swarm_wave": 3, "swarm_line": 2, "scout_pair": 3,
                   "scout_trio": 2, "marauder": 3, "mines": 2, "asteroids": 2}},
-    {"key": "pleiades", "duration": 95, "boss": "medusa", "scroll": 180,
+    {"key": "pleiades", "duration": 150, "boss": "medusa", "scroll": 180,
      "gap": 1.55, "seed": 37,
      "patterns": {"swarm_v": 3, "swarm_wave": 2, "scout_trio": 3,
                   "marauder": 3, "berserker": 2, "mines": 3}},
-    {"key": "maelstrom", "duration": 105, "boss": "hydra", "scroll": 200,
+    {"key": "maelstrom", "duration": 180, "boss": "hydra", "scroll": 200,
      "gap": 1.45, "seed": 41,
      "patterns": {"swarm_v": 3, "swarm_wave": 2, "scout_trio": 3,
                   "marauder": 3, "berserker": 3, "mines": 2, "asteroids": 1}},

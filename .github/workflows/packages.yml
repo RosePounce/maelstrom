@@ -1,9 +1,10 @@
 name: Packages
 
-# Builds both installers: a .exe for Windows, an AppImage for Linux, and
-# publishes them on the GitHub Releases page under their tag. Each package is
-# run after it is built and must pass its own self-check (main.py
-# --verification), otherwise the pipeline fails.
+# Builds the three packages: a .exe for Windows, an AppImage for Linux, and a
+# zip of the browser version, then publishes them on the GitHub Releases page
+# under their tag. Each desktop package is run after it is built and must pass
+# its own self-check (main.py --verification), otherwise the pipeline fails;
+# the browser build, which no runner can play, checks its archive instead.
 #
 # One way in: pushing a v* tag that points at a commit of origin/main.
 #
@@ -129,10 +130,36 @@ jobs:
           path: dist/*-setup.exe
           if-no-files-found: error
 
-  # The two installers land on the GitHub Releases page, under the tag.
+  web:
+    name: Browser version (pygbag)
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install pygbag
+      # pygbag calls ffmpeg to recompress the soundtrack (mono, 22 kHz).
+      # Without it the tracks are packed as they are: three times heavier.
+      - name: ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      # The script checks the build before zipping it: the page, both payloads
+      # and the game modules have to be in there, and nothing else.
+      - name: pygbag build, packed for upload
+        run: python packaging/web/make_web.py "${{ needs.version.outputs.number }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-browser
+          path: dist/*-web.zip
+          if-no-files-found: error
+
+  # The three packages land on the GitHub Releases page, under the tag.
   release:
     name: Release
-    needs: [version, linux, windows]
+    needs: [version, linux, windows, web]
     runs-on: ubuntu-latest
     permissions:
       contents: write
