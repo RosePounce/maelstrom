@@ -23,7 +23,7 @@ solo records (deaths, best times, unlocks) are left alone.
 """
 
 from settings.balance import (
-    DEFAULT_SHIP, HANGAR, LEVELS, MISSILE_MAX, SHIPS, WEAPON_MAX_LEVEL, WEAPONS,
+    DEFAULT_SHIP, HANGAR, MISSILE_MAX, SHIPS, WEAPON_MAX_LEVEL, WEAPONS,
 )
 from settings.ui import SHAKE_DECAY
 from maelstrom.enemies import Enemy, asteroid_shape, make_boss
@@ -37,9 +37,12 @@ from maelstrom.storage import log
 # ----------------------------------------------------------------------
 
 def profile(meta):
-    """What a player brings to a game: hull, hangar, loadout per sector."""
+    """What a player brings to a game: hull, hangar, loadout per sector (keyed
+    by sector id, like the meta's progress)."""
+    loadouts = {sid: e["loadout"] for sid, e in meta["progress"].items()
+                if e.get("loadout")}
     return {"ship": meta["ship"], "hangar": dict(meta["hangar"]),
-            "loadouts": list(meta["loadouts"])}
+            "loadouts": loadouts}
 
 
 def _loadout(item):
@@ -67,10 +70,10 @@ def clean_profile(data):
                 except (TypeError, ValueError):
                     pass
     loadouts = data.get("loadouts")
-    loadouts = loadouts if isinstance(loadouts, list) else []
+    loadouts = loadouts if isinstance(loadouts, dict) else {}
+    clean = {str(k): _loadout(v) for k, v in loadouts.items() if _loadout(v)}
     return {"ship": ship if ship in SHIPS else DEFAULT_SHIP, "hangar": hangar,
-            "loadouts": [_loadout(loadouts[i]) if i < len(loadouts) else None
-                         for i in range(len(LEVELS))]}
+            "loadouts": clean}
 
 
 class Session:

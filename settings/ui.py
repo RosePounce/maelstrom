@@ -178,6 +178,23 @@ BOSS_LOOKS = {
     },
 }
 
+# Per-sector Titan skins: a palette override on BOSS_LOOKS["titan"], chosen in
+# the sector editor so the six sectors' Titans do not all look like Taranis.
+# "bronze" is the default (no override).
+TITAN_SKINS = {
+    "bronze": {},
+    "violet": {"petal": (184, 96, 222), "petal_dark": (38, 12, 44),
+               "vein": (236, 150, 255), "tentacle": (168, 92, 198),
+               "tentacle_dark": (40, 14, 48), "pod": (120, 236, 255)},
+    "cyan": {"petal": (96, 206, 214), "petal_dark": (10, 36, 40),
+             "vein": (170, 255, 240), "tentacle": (86, 176, 184),
+             "tentacle_dark": (14, 40, 44), "pod": (255, 206, 92)},
+    "crimson": {"petal": (206, 74, 74), "petal_dark": (44, 10, 10),
+                "vein": (255, 150, 120), "tentacle": (176, 70, 70),
+                "tentacle_dark": (44, 12, 12), "pod": (255, 214, 86)},
+}
+TITAN_SKIN_ORDER = ("bronze", "violet", "cyan", "crimson")
+
 # Parallax stars: (share of the scroll speed, count, size, brightness)
 STAR_LAYERS = ((0.06, 70, 1, 120), (0.16, 40, 1, 190), (0.34, 18, 2, 240))
 GRID_ROWS = 9                  # horizontal lines of the ground

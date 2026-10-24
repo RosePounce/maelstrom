@@ -53,6 +53,47 @@
     ]
   },
 
+  "map": {
+    "title": "VOIE LACTEE",
+    "subtitle": "Reconquerir la galaxie, region par region",
+    "pick": "Survoler une region pour le detail, cliquer pour y entrer.",
+    "state_free": "Liberee",
+    "state_open": "A liberer",
+    "state_invaded": "Envahie",
+    "sectors_done": "{done}/{total} secteurs liberes",
+    "enter_hint": "Cliquer pour entrer dans la region.",
+    "locked_sub": "Liberer une region voisine d'abord.",
+    "state_thargoid": "Tenu par les Thargoids",
+    "state_threatened": "Menace - a liberer",
+    "state_freed": "Libere",
+    "unknown": "Espace Thargoid",
+    "unknown_sub": "Secteur non cartographie. A venir.",
+    "toggle": "TAB : fond ({mode})",
+    "bg_reduced": "Gaia (reduite)",
+    "bg_proc": "Procedural",
+    "bg_platform": "Gaia pleine / web procedural",
+    "edit_hint": "E : editeur de regions"
+  },
+
+  "region": {
+    "subtitle": "Liberer les 4 secteurs, puis le Titan"
+  },
+
+  "editor": {
+    "title": "EDITEUR DE REGIONS",
+    "subtitle": "Peindre ses propres regions sur la grille",
+    "new_name": "Region {n}",
+    "saved": "Layout enregistre.",
+    "save_failed": "Echec de l'enregistrement.",
+    "bubble_tag": "[Bulle]",
+    "help": [
+      "Clic gauche : peindre   droit : effacer",
+      "1-9 / Tab : region   N : nouvelle   X : suppr.",
+      "B : region de depart (Bulle)   R : renommer",
+      "S : sauver   Echap : retour"
+    ]
+  },
+
   "hangar": {
     "title": "HANGAR",
     "subtitle": "Ameliorations permanentes, payees en meta-alliage",
@@ -136,6 +177,7 @@
 
   "banner": {
     "sector": "SECTEUR {n}",
+    "mission": "Mission {k}/{n}",
     "boss_warning": "INTERCEPTEUR EN APPROCHE",
     "boss_warning_sub": "{name} - {hearts} coeurs",
     "boss_hearts": "{name}   coeur {heart}/{hearts}",

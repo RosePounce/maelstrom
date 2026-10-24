@@ -15,7 +15,7 @@ import random
 
 import pygame
 
-from settings.balance import BONUSES, LEVELS, MALUSES, WEAPON_MAX_LEVEL
+from settings.balance import BONUSES, MALUSES, WEAPON_MAX_LEVEL
 from settings.ui import (
     C_ALLOY, C_BONUS, C_HEART, C_HEART_COLD, C_HULL, C_HULL_BG, C_HULL_LOW,
     C_MALUS, C_MISSILE, C_NEON_CYAN, C_NEON_PINK, C_NEON_RED, C_NEON_YELLOW,
@@ -42,6 +42,9 @@ class Hud:
 
     # --- overlays -----------------------------------------------------------
 
+    def sector_deaths(self):
+        return self.meta["progress"].get(self.sid, {}).get("deaths", 0)
+
     def open_overlay(self, kind):
         """Builds the buttons of an overlay as (action, Button) pairs. The
         first one is also the Enter key."""
@@ -61,12 +64,9 @@ class Hud:
                 actions = [("retry", i18n.t("dead.btn_retry"))]
             actions += [("hangar", i18n.t("dead.btn_hangar")), ("menu", i18n.t("pause.btn_menu"))]
         else:
-            if self.level_index + 1 < len(LEVELS):
-                actions = [("next", i18n.t("clear.btn_next")),
-                           ("hangar", i18n.t("dead.btn_hangar")),
-                           ("menu", i18n.t("pause.btn_menu"))]
-            else:
-                actions = [("menu", i18n.t("pause.btn_menu"))]
+            actions = [("next", i18n.t("clear.btn_next")),
+                       ("hangar", i18n.t("dead.btn_hangar")),
+                       ("menu", i18n.t("pause.btn_menu"))]
         self.place_overlay(kind, actions)
 
     def coop_actions(self, kind):
@@ -85,9 +85,7 @@ class Hud:
                 return [("retry_boss", i18n.t("dead.btn_retry_boss")),
                         ("retry", i18n.t("dead.btn_retry_start")), leave]
             return [("retry", i18n.t("dead.btn_retry")), leave]
-        if self.level_index + 1 < len(LEVELS):
-            return [("next", i18n.t("clear.btn_next")), leave]
-        return [leave]
+        return [("next", i18n.t("clear.btn_next")), leave]
 
     def place_overlay(self, kind, actions):
         top = HEIGHT - 40 - len(actions) * OVERLAY_STEP
@@ -128,18 +126,14 @@ class Hud:
                 lines.append(i18n.t("dead.progress", pct=self.progress() * 100))
             lines.append(i18n.t("dead.alloys", alloys=self.attempt_alloys))
             if not self.coop:
-                lines.append(i18n.t("dead.deaths", deaths=self.meta["deaths"][self.level_index]))
+                lines.append(i18n.t("dead.deaths", deaths=self.sector_deaths()))
         else:
-            last = self.level_index + 1 >= len(LEVELS)
-            title, color = ((i18n.t("victory.title"), C_THARG) if last
-                            else (i18n.t("clear.title"), C_NEON_CYAN))
-            if last:
-                lines.append(i18n.t("victory.sub"))
+            title, color = i18n.t("clear.title"), C_NEON_CYAN
             lines.append(i18n.t("clear.time", time=self.elapsed))
             lines.append(i18n.t("clear.kills", kills=self.kills))
             lines.append(i18n.t("dead.alloys", alloys=self.attempt_alloys))
             if not self.coop:
-                lines.append(i18n.t("clear.deaths", deaths=self.meta["deaths"][self.level_index]))
+                lines.append(i18n.t("clear.deaths", deaths=self.sector_deaths()))
 
         if self.role == "client" and self.overlay in ("dead", "cleared"):
             lines.append(i18n.t("coop.wait_host"))

@@ -17,7 +17,7 @@ from settings.balance import (
 from settings.ui import (
     BOSS_LOOKS, C_CAUSTIC, C_HEART, C_HEART_COLD, C_NEON_ORANGE,
     C_NEON_PURPLE, C_NEON_RED, C_NEON_YELLOW, C_THARG, C_THARG_DARK, HEIGHT,
-    PLAY_BOTTOM, PLAY_TOP, WIDTH,
+    PLAY_BOTTOM, PLAY_TOP, TITAN_SKINS, WIDTH,
 )
 from maelstrom.neon import blit_glow, lerp_color, neon_polygon, rotate_points
 
@@ -460,11 +460,13 @@ class Titan(Interceptor):
     for good at once: each time its pods are all destroyed it RISES again,
     recoloured and stronger (`forms` in BOSSES), until its last form dies."""
 
-    def __init__(self, key, level_index):
+    def __init__(self, key, level_index, spec=None):
         super().__init__(key, level_index)
         b = BOSSES[key]
+        # a sector's Titan can override its toughness (hp, forms) and skin
+        self.spec = spec or {}
         self.form = 0
-        self.form_count = b.get("forms", 1)
+        self.form_count = int(self.spec.get("forms") or b.get("forms", 1))
         self._apply_form()
         self.heart_hp = self.heart_hp_max
         self.x = WIDTH + self.radius * 2.0
@@ -475,14 +477,17 @@ class Titan(Interceptor):
         self.beam_angle = math.pi
 
     def _apply_form(self):
-        """Health, cadence and colours of the current form."""
+        """Health, cadence and colours of the current form, with the sector's
+        Titan overrides (hp multiplier, skin) applied on top."""
         b = BOSSES[self.key]
-        self.heart_hp_max = b["heart_hp"] * b.get("form_hp", 1.0) ** self.form
+        self.heart_hp_max = (b["heart_hp"] * b.get("form_hp", 1.0) ** self.form
+                             * self.spec.get("hp", 1.0))
         self.period = b["period"] * b.get("form_period", 1.0) ** self.form
         base = BOSS_LOOKS[self.key]
         tints = base.get("form_tints", [{}])
         self.look = dict(base)
         self.look.update(tints[min(self.form, len(tints) - 1)])
+        self.look.update(TITAN_SKINS.get(self.spec.get("skin"), {}))
 
     # --- flight and attacks -------------------------------------------------
 
@@ -679,8 +684,9 @@ class Titan(Interceptor):
         blit_glow(surf, x, y, int(r * 0.7), beam_col, 0.8)
 
 
-def make_boss(key, level_index):
-    """The boss of a sector: the Titan finale, or a plain Interceptor."""
+def make_boss(key, level_index, spec=None):
+    """The boss of a sector: the Titan (with the sector's `spec` overrides), or
+    a plain Interceptor."""
     if key == "titan":
-        return Titan(key, level_index)
+        return Titan(key, level_index, spec)
     return Interceptor(key, level_index)

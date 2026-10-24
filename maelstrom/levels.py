@@ -84,18 +84,26 @@ PATTERNS = {f.__name__: f for f in (swarm_line, swarm_wave, swarm_v, scout_pair,
                                     asteroids)}
 
 
-def build_script(index):
-    """The spawns of sector `index`, sorted by time."""
-    level = LEVELS[index]
-    rng = random.Random(level["seed"])
-    names = list(level["patterns"])
-    weights = [level["patterns"][n] for n in names]
+def build_from(mission):
+    """The spawns of one mission, sorted by time. `mission` is a dict with
+    `duration`, `gap`, `seed` and `patterns` (pattern name -> weight): the same
+    fields a `LEVELS` entry carries, so a sector's missions and the old flat
+    sectors build the same way. Seeded, so a die-and-retry meets the same waves."""
+    rng = random.Random(mission["seed"])
+    names = list(mission["patterns"])
+    weights = [mission["patterns"][n] for n in names]
+    duration, gap = mission["duration"], mission["gap"]
     events = []
     t = 2.5
-    while t < level["duration"] - 3:
+    while t < duration - 3:
         name = rng.choices(names, weights)[0]
         events.extend(PATTERNS[name](t, rng))
-        progress = t / level["duration"]
-        t += level["gap"] * (1 - GAP_RAMP * progress) * rng.uniform(0.75, 1.25)
+        t += gap * (1 - GAP_RAMP * t / duration) * rng.uniform(0.75, 1.25)
     events.sort(key=lambda e: e.t)
     return events
+
+
+def build_script(index):
+    """The spawns of flat sector `index` (`LEVELS`). Kept for `--verification`
+    and any flat-sector path; the campaign builds per mission with `build_from`."""
+    return build_from(LEVELS[index])

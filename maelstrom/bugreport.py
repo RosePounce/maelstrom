@@ -97,10 +97,12 @@ def _meta_rows():
         meta = read_meta()
         hangar = ", ".join(f"{k} {v}" for k, v in sorted(meta["hangar"].items())
                            if v) or "none"
+        deaths = ", ".join(f"{sid} {e['deaths']}" for sid, e in meta["progress"].items()
+                           if e.get("deaths")) or "none"
         return [("meta alloys", str(meta["alloys"])),
                 ("meta hangar", hangar),
-                ("meta sectors open", str(meta["unlocked"])),
-                ("meta deaths per sector", ", ".join(str(d) for d in meta["deaths"]))]
+                ("meta regions freed", str(len(meta.get("liberated", [])))),
+                ("meta deaths per level", deaths)]
     except Exception:
         return [("meta error", traceback.format_exc().strip())]
 

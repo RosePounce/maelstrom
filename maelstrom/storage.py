@@ -15,7 +15,7 @@ import logging
 import os
 import sys
 
-from settings.balance import DEFAULT_SHIP, LEVELS, MISSILE_START, SHIPS
+from settings.balance import DEFAULT_SHIP, MISSILE_START, SHIPS
 from settings.ui import PROJECT_DIR, WEB
 
 
@@ -120,7 +120,7 @@ def store_write(name, data):
 #  Meta-progression
 # ----------------------------------------------------------------------
 
-META_VERSION = 1
+META_VERSION = 3
 META_NAME = "meta.json"
 
 
@@ -132,15 +132,12 @@ def base_loadout(ship=DEFAULT_SHIP):
 
 
 def default_meta():
-    count = len(LEVELS)
     return {
         "alloys": 0,
         "hangar": {},
         "ship": DEFAULT_SHIP,        # the chosen starting hull
-        "unlocked": 1,               # number of sectors open
-        "deaths": [0] * count,
-        "best": [None] * count,      # best clear time, seconds
-        "loadouts": [None] * count,  # ship loadout when entering each sector
+        "progress": {},              # id -> {best, deaths, loadout, cleared}
+        "liberated": [],             # ids of the regions freed (map colour)
         "won": False,
     }
 
@@ -151,14 +148,36 @@ def _loadout_ok(item):
             and isinstance(item.get("missiles"), int))
 
 
+def _clean_entry(v):
+    """A progress entry, rebuilt field by field (a damaged file cannot crash)."""
+    if not isinstance(v, dict):
+        return None
+    best = v.get("best")
+    try:
+        deaths = max(0, int(v.get("deaths") or 0))
+    except (TypeError, ValueError):
+        deaths = 0
+    lo = v.get("loadout")
+    return {"best": float(best) if isinstance(best, (int, float)) else None,
+            "deaths": deaths, "loadout": lo if _loadout_ok(lo) else None,
+            "cleared": bool(v.get("cleared"))}
+
+
+def sector_entry(meta, sid):
+    """The progress entry for id `sid`, created and stored if absent."""
+    return meta["progress"].setdefault(
+        sid, {"best": None, "deaths": 0, "loadout": None, "cleared": False})
+
+
 def read_meta():
-    """Reads the meta back. Always a usable dict: every field is REBUILT,
-    so a file damaged or tinkered with by hand cannot crash a screen."""
+    """Reads the meta back. Always a usable dict: every field is REBUILT, so a
+    file damaged or tinkered with by hand cannot crash a screen. An older meta
+    (v1 flat lists, v2 sector ids) keeps its alloys / hangar / ship; its per-
+    level progress is reset -- the galaxy's region ids are a new scheme."""
     meta = default_meta()
     data = store_read(META_NAME)
-    if not isinstance(data, dict) or data.get("version") != META_VERSION:
+    if not isinstance(data, dict):
         return meta
-    count = len(LEVELS)
     try:
         meta["alloys"] = max(0, int(data.get("alloys", 0)))
         hangar = data.get("hangar", {})
@@ -166,18 +185,17 @@ def read_meta():
             meta["hangar"] = {str(k): max(0, int(v)) for k, v in hangar.items()}
         ship = data.get("ship")
         meta["ship"] = ship if ship in SHIPS else DEFAULT_SHIP
-        meta["unlocked"] = max(1, min(count, int(data.get("unlocked", 1))))
-        for field in ("deaths", "best", "loadouts"):
-            values = data.get(field)
-            if isinstance(values, list):
-                for i, v in enumerate(values[:count]):
-                    meta[field][i] = v
-        meta["deaths"] = [max(0, int(d or 0)) for d in meta["deaths"]]
-        meta["best"] = [float(b) if isinstance(b, (int, float)) else None
-                        for b in meta["best"]]
-        meta["loadouts"] = [lo if _loadout_ok(lo) else None
-                            for lo in meta["loadouts"]]
         meta["won"] = bool(data.get("won", False))
+        if data.get("version") == META_VERSION:      # same scheme: keep progress
+            prog = data.get("progress", {})
+            if isinstance(prog, dict):
+                for sid, v in prog.items():
+                    entry = _clean_entry(v)
+                    if entry:
+                        meta["progress"][str(sid)] = entry
+            lib = data.get("liberated")
+            if isinstance(lib, list):
+                meta["liberated"] = [str(x) for x in lib]
     except (TypeError, ValueError):
         return default_meta()
     return meta

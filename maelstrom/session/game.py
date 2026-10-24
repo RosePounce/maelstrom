@@ -1,14 +1,17 @@
-"""The Game class: one sector, from its first wave to its Interceptor.
+"""The Game class: one sector -- its four missions, then its Titan.
 
 `Game` is a composition: each base class comes from a file of this folder,
 has no state and no `__init__`, and only provides methods that read and
 write `self`. The state is created here only: the interface by `__init__`,
-an attempt by `start()`.
+an attempt by `start()`. The sector played comes from the galaxy layout
+(`galaxy_layout.load_sectors`): its backdrop `key`, `scroll`, `missions`
+(wave weights) and `titan` (the end-of-sector boss).
 
 The phases of an attempt (`self.phase`):
-  play        the waves scroll by, until the sector's `duration`;
-  warning     "Interceptor approaching" (the checkpoint is taken here);
-  boss        the Interceptor fights;
+  play        the waves of the CURRENT mission scroll by; at its `duration`
+              the next mission starts, until the four are done;
+  warning     "The Titan rises" (the checkpoint is taken here);
+  boss        the Titan fights;
   boss_dying  its explosions, the ship cannot be hurt any more;
   dead        the ship is destroyed: retry overlay;
   cleared     the sector is freed: next / hangar / menu overlay.
@@ -25,7 +28,7 @@ import random
 import pygame
 
 from settings.balance import (
-    BOSS_CLEAR_WAIT, BOSS_WARNING, BOSSES, COOP_RESPAWN, HANGAR, LEVELS,
+    BOSS_CLEAR_WAIT, BOSS_WARNING, BOSSES, COOP_RESPAWN, HANGAR,
     MISSILE_MAX, MISSILE_START,
 )
 from settings.ui import (
@@ -36,9 +39,9 @@ from maelstrom import audio, i18n, screen
 from maelstrom.backdrop import Backdrop
 from maelstrom.effects import Particle
 from maelstrom.enemies import Enemy, make_boss
-from maelstrom.levels import build_script
+from maelstrom.levels import build_from
 from maelstrom.player import Ship
-from maelstrom.storage import base_loadout, log, read_meta, write_meta
+from maelstrom.storage import base_loadout, log, read_meta, sector_entry, write_meta
 from maelstrom.session.bug_form import BugForm
 from maelstrom.session.combat import Combat
 from maelstrom.session.controls import Controls
@@ -52,25 +55,31 @@ SPAWN_X = 140
 
 
 class Game(Combat, Controls, Hud, BugForm, Coop):
-    def __init__(self, level_index, coop=None, carry=None):
-        """`coop`: the co-op session (coop.Session), None solo. `carry`: in
-        co-op, the loadouts the ships bring from the sector just cleared."""
+    def __init__(self, level, sid, coop=None, carry=None):
+        """Plays one level -- a region's sector (waves + its Interceptor) or its
+        Titan. `level` is the level dict (`key`, `boss`, `scroll`, `duration`,
+        `gap`, `seed`, `patterns`, and `spec` for a Titan); `sid` the id its
+        records are filed under. `coop`: the session, None solo. `carry`: the
+        loadouts the ships bring in (set by the region flow / co-op)."""
         self.meta = read_meta()
         self.coop = coop
         self.role = coop.role if coop else "solo"
         self.me = coop.me if coop else 0         # index of the local ship
-        # who flies: ship, hangar and per-sector loadouts of each player
         self.players = coop.players if coop else [profile(self.meta)]
         self.carry = carry
-        self.level_index = level_index
-        self.level = LEVELS[level_index]
-        self.scroll = self.level["scroll"]
-        self.backdrop = Backdrop(self.level["key"])
+        self.level = level
+        self.sid = sid
+        self.key = level["key"]
+        self.scroll = level["scroll"]
+        self.level_index = level.get("depth", 0)     # enemy scaling by depth
+        self.boss_spec = level.get("spec")           # per-region Titan overrides
+        self.backdrop = Backdrop(self.key)
         self.world = pygame.Surface((WIDTH, HEIGHT)).convert()
         self.exit_request = None         # "menu", "quit", "hangar", "next"
-        self.next_level = level_index    # the sector main.py plays next
+        self.next_level = None           # co-op compatibility
         self.checkpoint = None           # ship loadouts when the boss came
-        self.carry_out = None            # co-op: loadouts after a cleared sector
+        self.carry_out = None            # loadouts after a cleared level
+        self.cleared = False             # did an attempt clear it (for the flow)
         self.unbanked = 0                # meta-alloy not yet written to the meta
         self.next_uid = 1                # names the enemies on the network
         self.init_coop()
@@ -81,14 +90,11 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
     # --- an attempt ---------------------------------------------------------
 
     def entry_loadout(self, i=0):
-        """The loadout ship `i` had when it entered this sector."""
+        """The loadout ship `i` brings in -- carried by the region flow (base
+        on the region's first sector, then what the last one was cleared with)."""
         if self.carry:
             return dict(self.carry[i])
-        player = self.players[i]
-        if self.level_index == 0:
-            return base_loadout(player["ship"])
-        return dict(player["loadouts"][self.level_index]
-                    or base_loadout(player["ship"]))
+        return base_loadout(self.players[i]["ship"])
 
     def spawn_y(self, i):
         if len(self.players) == 1:
@@ -105,11 +111,11 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
                     player["ship"], C_PLAYERS[i])
 
     def start(self, from_boss):
-        """A new attempt: from the start of the sector, or from its
-        Interceptor with the loadouts the ships had when it came."""
+        """A new attempt: from the first wave, or straight at the boss with the
+        loadouts the ships had when it came."""
         self.ships = [self.make_ship(i, from_boss) for i in range(len(self.players))]
         self.ship = self.ships[self.me]
-        self.script = build_script(self.level_index)
+        self.script = build_from(self.level)
         self.script_i = 0
         self.t = 0.0                     # sector clock: drives the waves
         self.elapsed = 0.0               # time of this attempt
@@ -135,9 +141,9 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
             self.enter_warning(checkpoint=False)
             self.phase_t = BOSS_WARNING * 0.45      # a shorter warning on a retry
         else:
-            self.show_banner(["t", "banner.sector", {"n": self.level_index + 1}],
-                             ["level_name", self.level["key"]], C_NEON_CYAN)
-        log.info("sector %d attempt (from_boss=%s)", self.level_index + 1, from_boss)
+            self.show_banner(["level_name", self.key], ["boss_name", self.level["boss"]],
+                             C_NEON_CYAN)
+        log.info("level %s attempt (from_boss=%s)", self.key, from_boss)
 
     def show_banner(self, title, sub, color, time=BANNER_TIME):
         """`title` and `sub` are texts as data (see `i18n.text`)."""
@@ -173,8 +179,6 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
             return self.level["boss"]
         if phase == "boss_dying":
             return None                  # fades out under the explosions
-        if phase == "cleared" and self.level_index + 1 == len(LEVELS):
-            return "credits"
         return phase                     # "warning", "dead", "cleared"
 
     def state_data(self):
@@ -236,38 +240,25 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
             return
         self.explode(self.ship.x, self.ship.y, C_NEON_CYAN, 60, 320)
         self.shake = 16
-        self.meta["deaths"][self.level_index] += 1
+        sector_entry(self.meta, self.sid)["deaths"] += 1
         self.bank()
         self.open_overlay("dead")
-        log.info("sector %d: ship destroyed at %.0f%%", self.level_index + 1,
-                 self.progress() * 100)
+        log.info("level %s: ship destroyed at %.0f%%", self.key, self.progress() * 100)
 
     def clear_sector(self):
-        i = self.level_index
+        """The level is cleared. Records the time and marks it cleared; the
+        region flow (menu) handles liberation, unlock and the carried loadout."""
         self.phase, self.phase_t = "cleared", 0.0
-        if self.coop:
-            # co-op: only the meta-alloy is kept (bank); the solo records,
-            # unlocks and loadouts are not touched. The loadouts go on to the
-            # next co-op sector instead.
-            if i + 1 < len(LEVELS):
-                self.next_level = i + 1
-                self.carry_out = [ship.loadout() for ship in self.ships]
-            self.bank()
-            self.open_overlay("cleared")
-            log.info("co-op sector %d cleared in %.1f s", i + 1, self.elapsed)
-            return
-        best = self.meta["best"][i]
-        if best is None or self.elapsed < best:
-            self.meta["best"][i] = round(self.elapsed, 1)
-        if i + 1 < len(LEVELS):
-            self.meta["unlocked"] = max(self.meta["unlocked"], i + 2)
-            self.meta["loadouts"][i + 1] = self.ship.loadout()
-            self.next_level = i + 1
-        else:
-            self.meta["won"] = True
+        self.cleared = True
+        self.carry_out = [ship.loadout() for ship in self.ships]
+        if not self.coop:
+            entry = sector_entry(self.meta, self.sid)
+            entry["cleared"] = True
+            if entry["best"] is None or self.elapsed < entry["best"]:
+                entry["best"] = round(self.elapsed, 1)
         self.bank()
         self.open_overlay("cleared")
-        log.info("sector %d cleared in %.1f s", i + 1, self.elapsed)
+        log.info("level %s cleared in %.1f s", self.key, self.elapsed)
 
     # --- simulation ---------------------------------------------------------
 
@@ -317,7 +308,7 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
                     self.enter_warning()
         elif self.phase == "warning":
             if self.phase_t >= BOSS_WARNING:
-                self.boss = make_boss(self.level["boss"], self.level_index)
+                self.boss = make_boss(self.level["boss"], self.level_index, self.boss_spec)
                 self.phase, self.phase_t = "boss", 0.0
         elif self.phase == "boss":
             self.boss.update(dt, self)

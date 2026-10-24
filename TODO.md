@@ -48,16 +48,35 @@ Convention : `- [ ] (priorite) titre — courte note`, priorite `P1` (bientot) /
     detruit) ; lien avec le **Titan** et ses pods rouges, qui suivent la meme
     logique de points faibles.
 
-- [ ] (P2) **Campagne etendue sur une carte de la Voie lactee** (retour de jeu,
-  rapport `20261021-164337`) — « plus de niveaux : utiliser la carte de la voie
-  lactee decoupee par secteur x N niveaux pour repousser l'invasion des xeno ».
-  Aujourd'hui, 4 secteurs en ligne (`LEVELS`).
-  - *A definir* : ecran de carte galactique a la place de la liste des secteurs
-    (`menu.sectors()`) ; regions (Pleiades, Merope, Oracle...) contenant chacune
-    N niveaux et un boss ; progression de l'invasion sur la carte (zones
-    reprises / perdues) ; stockage dans la meta (`unlocked`, `best`, `deaths`
-    passent par region, montee de `META_VERSION`) ; generation des vagues pour
-    beaucoup plus de niveaux sans tout ecrire a la main.
+- [ ] (P1) **Campagne : galaxie -> regions -> secteurs** (retour de jeu, rapport
+  `20261021-164337`) — carte de la Voie lactee decoupee en REGIONS a reconquerir
+  face aux Thargoids ; chaque region = 4 secteurs + 1 Titan.
+  - *Modele (FAIT)* : Galaxie -> **Regions** (rouge = envahie, bleu = liberee) ->
+    **4 secteurs** (vagues + leur Intercepteur, comme l'existant) **+ 1 Titan**.
+    Battre le Titan libere la region. `maelstrom/galaxy_layout.py` : une region =
+    `{id, name, start, cells, sectors[4], titan}`. Region 1 (La Bulle) reprend le
+    contenu actuel (Merope/Oracle/Pleiades/Maelstrom + Taranis) ; adjacence derivee
+    des cellules.
+  - *Carte (FAIT)* : `menu.galaxy_map()` + `galaxy.py`, style Mass Effect (grille
+    polaire, frontieres en escalier, coeur brillant, fond Gaia ; 3 fonds au TAB).
+    Regions colorees par etat. On part de la **Bulle** ; liberer une region ouvre
+    ses **voisines** (front d'invasion), jusqu'a nettoyer la galaxie.
+  - *Ecran de region (FAIT)* : `menu.region_screen()` liste les 4 secteurs + le
+    Titan ; secteurs debloques en ligne, Titan une fois les 4 liberes. Jouer un
+    secteur = `Game` joue UN niveau (vagues + Intercepteur) ; le loadout se porte
+    de secteur en secteur dans la region.
+  - *Titan par secteur (FAIT)* : `make_boss(key, idx, spec)` / `Titan` lisent les
+    overrides du Titan de la region (`hp`, `forms`, `skin` -> `TITAN_SKINS`).
+  - *Editeur (FAIT, la forme)* : `menu.galaxy_editor()` (E depuis la carte) :
+    peindre les cellules d'une region, ajouter / supprimer / renommer, marquer la
+    Bulle (B), sauver `saves/galaxy_layout.json`.
+  - *Meta (FAIT)* : v3, progress par id (`region:secteur` / `region:titan` avec
+    `best`/`deaths`/`cleared`/`loadout`) + `liberated` ; migration qui garde
+    alliage / hangar / vaisseau et reinitialise le progress (ids nouveaux).
+  - *RESTE* : CO-OP (desactivee le temps de la refonte region, `main.coop`) ;
+    ecran de **victoire finale** (galaxie nettoyee) ; editer le **contenu** des
+    secteurs + Titan d'une region dans l'editeur (aujourd'hui generique par
+    defaut) ; eventuelle regression du front (l'inaction redonne du terrain).
 
 - [ ] (P2) **Loots et ameliorations** (retour de jeu, rapport `20261021-164639`) —
   « avoir des loots et des ameliorations ». Constat dans `saves/meta.json` : en

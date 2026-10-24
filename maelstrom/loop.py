@@ -33,14 +33,15 @@ def _prepare_window():
     pygame.display.set_icon(screen.ICON)
 
 
-async def play(level_index):
-    """Plays sector `level_index` until the player leaves it. Returns
-    `(outcome, level)`: outcome is "menu", "quit", "hangar" or "next", and
-    `level` the sector to play next (the same one after a death, the
-    following one after a cleared sector)."""
+async def play(level, sid, carry=None):
+    """Plays one level (a region's sector or its Titan) until the player leaves
+    it. `level` is the level dict, `sid` its records id, `carry` the loadouts
+    brought in. Returns `(outcome, game)`: outcome is "menu", "quit", "hangar"
+    or "next"; the region flow reads `game.cleared` / `game.carry_out`."""
     _prepare_window()
-    game = Game(level_index)
-    return await _run(game), game.next_level
+    game = Game(level, sid, carry=carry)
+    outcome = await _run(game)
+    return outcome, game
 
 
 async def play_coop(session, level_index):

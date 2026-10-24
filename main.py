@@ -34,51 +34,63 @@ import pygame
 
 import menu
 from settings.ui import WEB
-from maelstrom import bugreport, bugsend, loop
+from maelstrom import bugreport, bugsend, galaxy_layout, loop
+from maelstrom.storage import base_loadout, read_meta, sector_entry, write_meta
 
 
-async def campaign(level):
-    """Plays from sector `level` on, until the player leaves for the menu.
-    Returns "menu" or "quit".
-
-    "next" chains the following sector; "hangar" opens the hangar then
-    plays the sector `play()` named (the same one after a death, the next
-    one after a cleared sector)."""
+async def campaign():
+    """The galaxy: pick a region on the map, play its sectors + Titan to free
+    it, then pick another. Returns "menu" or "quit"."""
     while True:
-        outcome, level = await loop.play(level)
+        regions = galaxy_layout.load_layout()
+        ri = await menu.galaxy_map(regions)
+        if isinstance(ri, str):                  # "menu" or "quit"
+            return ri
+        if await region_flow(regions, ri) == "quit":
+            return "quit"
+
+
+async def region_flow(regions, ri):
+    """One region: pick its sectors (and, once the four are freed, its Titan),
+    play them, carry the loadout from one to the next. Beating the Titan frees
+    the region. Returns "menu" or "quit"."""
+    region = regions[ri]
+    rid = galaxy_layout.region_id(region)
+    carry_id = rid + ":carry"
+    meta = read_meta()
+    carried = meta["progress"].get(carry_id, {}).get("loadout")
+    carry = [dict(carried or base_loadout(meta["ship"]))]
+    while True:
+        pick = await menu.region_screen(regions, ri)
+        if pick in ("menu", "quit"):
+            return pick
+        if pick == "titan":
+            level, sid = galaxy_layout.titan_level(region), galaxy_layout.titan_id(region)
+        else:
+            level = galaxy_layout.sector_level(region, pick)
+            sid = galaxy_layout.sector_id(region, pick)
+        outcome, game = await loop.play(level, sid, carry=carry)
         loop.current_game = None
-        if outcome == "next":
-            continue
-        if outcome == "hangar":
-            if await menu.hangar() == "quit":
-                return "quit"
-            continue
-        return outcome
+        if game.cleared:
+            carry = game.carry_out
+            meta = read_meta()
+            sector_entry(meta, carry_id)["loadout"] = carry[0]
+            if pick == "titan" and rid not in meta["liberated"]:
+                meta["liberated"].append(rid)
+            write_meta(meta)
+            if pick == "titan":
+                return "menu"                    # region freed -> back to the map
+        if outcome == "quit":
+            return "quit"
+        if outcome == "menu":
+            return "menu"
+        if outcome == "hangar" and await menu.hangar() == "quit":
+            return "quit"
 
 
 async def coop():
-    """A two-player co-op game on the local network (desktop only). Returns
-    "menu" or "quit".
-
-    Each player picks their ship, then hosts or joins in the lobby. The host
-    picks the sector among those IT has freed; the client waits for it."""
-    chosen = await menu.ships()
-    if chosen != "start":
-        return chosen
-    session = await menu.lobby()
-    if isinstance(session, str):
-        return session
-    try:
-        if session.role == "host":
-            level = await menu.sectors()
-            if isinstance(level, str):           # the host went back
-                return level
-            session.send({"type": "start", "level": level, "players": session.players})
-        else:
-            level = session.start_level
-        return await loop.play_coop(session, level)
-    finally:
-        session.close()
+    """Co-op is being reworked for the region model -- temporarily unavailable."""
+    return "menu"
 
 
 async def main():
@@ -100,18 +112,13 @@ async def main():
             if await coop() == "quit":
                 break
             continue
-        # campaign: pick a ship, then the sector list (coming back to it loops)
+        # campaign: pick a ship, then the galaxy map (coming back to it loops)
         chosen = await menu.ships()
         if chosen == "quit":
             break
         if chosen == "menu":
             continue
-        pick = await menu.sectors()
-        if pick == "quit":
-            break
-        if pick == "menu":
-            continue
-        if await campaign(pick) == "quit":
+        if await campaign() == "quit":
             break
 
 
@@ -122,9 +129,8 @@ def verification():
     PyInstaller package and on the AppImage, under SDL's dummy drivers: the
     bundled font and languages must load, and every sector must start and
     play a few seconds without raising. Returns the exit code."""
-    from maelstrom import i18n, screen
+    from maelstrom import galaxy_layout, i18n, screen
     from maelstrom.session.game import Game
-    from settings.balance import LEVELS
 
     menu.init()
     for code in ("fr", "en"):
@@ -134,13 +140,28 @@ def verification():
     if screen.FONT is None:
         print("verification: font not loaded", file=sys.stderr)
         return 1
-    for index in range(len(LEVELS)):
-        game = Game(index)
-        for _ in range(180):
-            game.update(1 / 60)
-            game.draw()
+    regions = galaxy_layout.load_layout()
+    levels = 0
+    for region in regions:
+        for i in range(len(region["sectors"])):
+            encounters = [(galaxy_layout.sector_level(region, i),
+                           galaxy_layout.sector_id(region, i))]
+            if i == 0:                                   # exercise the Titan once
+                encounters.append((galaxy_layout.titan_level(region),
+                                   galaxy_layout.titan_id(region)))
+            for level, sid in encounters:
+                game = Game(level, sid)
+                for _ in range(120):                     # a few seconds of waves
+                    game.update(1 / 60)
+                    game.draw()
+                game.t = game.level["duration"]
+                game.enter_warning()                     # bring on the boss
+                for _ in range(240):
+                    game.update(1 / 60)
+                    game.draw()
+                levels += 1
         pygame.display.flip()
-    print(f"verification: {len(LEVELS)} sectors OK")
+    print(f"verification: {len(regions)} regions, {levels} levels OK")
     return 0
 
 

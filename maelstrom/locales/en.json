@@ -51,6 +51,47 @@
     ]
   },
 
+  "map": {
+    "title": "MILKY WAY",
+    "subtitle": "Reclaim the galaxy, region by region",
+    "pick": "Hover a region for details, click to enter it.",
+    "state_free": "Freed",
+    "state_open": "To free",
+    "state_invaded": "Invaded",
+    "sectors_done": "{done}/{total} sectors freed",
+    "enter_hint": "Click to enter the region.",
+    "locked_sub": "Free a neighbouring region first.",
+    "state_thargoid": "Held by the Thargoids",
+    "state_threatened": "Threatened - to be freed",
+    "state_freed": "Freed",
+    "unknown": "Thargoid space",
+    "unknown_sub": "Uncharted sector. Coming soon.",
+    "toggle": "TAB: background ({mode})",
+    "bg_reduced": "Gaia (reduced)",
+    "bg_proc": "Procedural",
+    "bg_platform": "Gaia full / web procedural",
+    "edit_hint": "E: region editor"
+  },
+
+  "region": {
+    "subtitle": "Free the 4 sectors, then the Titan"
+  },
+
+  "editor": {
+    "title": "REGION EDITOR",
+    "subtitle": "Paint your own regions onto the grid",
+    "new_name": "Region {n}",
+    "saved": "Layout saved.",
+    "save_failed": "Save failed.",
+    "bubble_tag": "[Bubble]",
+    "help": [
+      "Left click: paint   right: erase",
+      "1-9 / Tab: region   N: new   X: remove",
+      "B: start region (Bubble)   R: rename",
+      "S: save   Esc: back"
+    ]
+  },
+
   "hangar": {
     "title": "HANGAR",
     "subtitle": "Permanent upgrades, paid in Meta-Alloy",
@@ -134,6 +175,7 @@
 
   "banner": {
     "sector": "SECTOR {n}",
+    "mission": "Mission {k}/{n}",
     "boss_warning": "INTERCEPTOR APPROACHING",
     "boss_warning_sub": "{name} - {hearts} hearts",
     "boss_hearts": "{name}   heart {heart}/{hearts}",

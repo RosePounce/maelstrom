@@ -12,6 +12,7 @@ instead of exiting on its own: "campaign", "coop", "hangar", "options",
 """
 
 import asyncio
+import copy
 import math
 
 import pygame
@@ -20,11 +21,16 @@ from settings import GAME_NAME, VERSION_LABEL
 from settings.balance import HANGAR, LEVELS, SHIP_ORDER, SHIPS, hangar_cost
 from settings.ui import (
     C_ALLOY, C_HEART, C_HULL, C_NEON_CYAN, C_NEON_ORANGE, C_NEON_PINK,
-    C_NEON_YELLOW, C_PANEL, C_PANEL_BORDER, C_SHIELD, C_TEXT, C_TEXT_GRAY,
-    C_NEON_RED, C_PLAYERS, C_THARG, C_THARG_DARK, FPS, HEIGHT, LEVEL_LOOKS,
-    WEB, WIDTH,
+    C_NEON_PURPLE, C_NEON_YELLOW, C_PANEL, C_PANEL_BORDER, C_SHIELD, C_TEXT,
+    C_TEXT_GRAY, C_NEON_RED, C_PLAYERS, C_THARG, C_THARG_DARK, FPS, HEIGHT,
+    LEVEL_LOOKS, WEB, WIDTH,
 )
 from maelstrom import audio, bugform, i18n, screen
+from maelstrom.galaxy import BG_MODES, BORDER, COLS, EMPTY, GalaxyMap, RINGS
+from maelstrom.galaxy_layout import (
+    adjacency, load_layout, new_region, region_id, save_layout, sector_id,
+    titan_id,
+)
 from maelstrom.backdrop import Backdrop
 from maelstrom.neon import blit_glow, draw_bar, draw_sun, neon_polygon
 from maelstrom.player import COCKPIT, HULL_SHAPE, SHIP_SHAPES
@@ -491,44 +497,181 @@ async def ships():
 
 
 # ----------------------------------------------------------------------
-#  Sectors
+#  Sectors: the galaxy map
 # ----------------------------------------------------------------------
 
-async def sectors():
-    """Returns the index of the sector chosen, "menu" or "quit"."""
+async def galaxy_map(regions):
+    """The galaxy: its REGIONS, red (invaded) or blue (freed). The start Bubble
+    and the neighbours of freed regions can be entered. Returns the chosen
+    region index, "menu" or "quit". TAB cycles the backgrounds; E opens the
+    editor."""
     audio.music("title")
     surf = screen.SCREEN = make_screen()
     meta = read_meta()
-    # The finale (the Titan) is not picked here: it follows the last sector.
-    selectable = [i for i in range(len(LEVELS)) if not LEVELS[i].get("finale")]
-    w, h = 214, 318
-    rects = _row_rects(len(selectable), w, h, 110, 14)
-    cards = []
-    for slot, i in enumerate(selectable):
-        level = LEVELS[i]
-        open_ = i < meta["unlocked"]
-        key = level["key"]
+    gmap = GalaxyMap(regions)
+    adj = adjacency(regions)
+    bg = 0                           # index into BG_MODES
+    panel = pygame.Rect(600, 150, 330, 286)
+    state_color = {"free": C_NEON_CYAN, "open": C_NEON_ORANGE, "invaded": C_NEON_RED}
+
+    def freed(i):
+        return region_id(regions[i]) in meta["liberated"]
+
+    def is_open(i):
+        return bool(regions[i].get("start")) or any(freed(j) for j in adj[i])
+
+    def state(i):
+        return "free" if freed(i) else ("open" if is_open(i) else "invaded")
+
+    def sectors_done(region):
+        return sum(1 for s in range(len(region["sectors"]))
+                   if meta["progress"].get(sector_id(region, s), {}).get("cleared"))
+
+    def draw_regions(hov):
+        gmap.draw_frame(surf, hov, state_color[state(hov)] if hov is not None else C_NEON_CYAN)
+        for i in range(len(regions)):
+            col = state_color[state(i)]
+            nx, ny = (int(v) for v in gmap.node(i))
+            lit = i == hov
+            blit_glow(surf, nx, ny, 24 if lit else 16, col, 0.6 if lit else 0.3)
+            pygame.draw.circle(surf, col, (nx, ny), 8 if lit else 6)
+            pygame.draw.circle(surf, (10, 6, 20), (nx, ny), 3)
+            lx, ly = gmap.label_pos(i)
+            for k, line in enumerate(wrap(regions[i].get("name", "?"), screen.FONT_TINY, 150)):
+                t = screen.FONT_TINY.render(line, True, col if lit else BORDER)
+                surf.blit(t, t.get_rect(center=(int(lx), int(ly) + k * 15)))
+
+    def draw_panel(i):
+        pygame.draw.rect(surf, C_PANEL, panel, border_radius=8)
+        pygame.draw.rect(surf, C_PANEL_BORDER, panel, 2, border_radius=8)
+        if i is None:
+            for k, line in enumerate(wrap(i18n.t("map.pick"), screen.FONT_SMALL, panel.w - 28)):
+                surf.blit(screen.FONT_SMALL.render(line, True, C_TEXT_GRAY),
+                          (panel.x + 14, panel.y + 16 + k * 22))
+            return
+        region, st = regions[i], state(i)
+        col = state_color[st]
+        x, y = panel.x + 14, panel.y + 14
+        surf.blit(screen.FONT.render(region.get("name", "?"), True, col), (x, y))
+        surf.blit(screen.FONT_TINY.render(i18n.t("map.state_" + st), True, col), (x, y + 30))
+        n = len(region["sectors"])
+        rows = [(i18n.t("map.sectors_done", done=sectors_done(region), total=n), C_TEXT),
+                (i18n.t("map.locked_sub") if st == "invaded" else i18n.t("map.enter_hint"),
+                 C_TEXT_GRAY)]
+        yy = y + 58
+        for text, tcol in rows:
+            for line in wrap(text, screen.FONT_SMALL, panel.w - 28):
+                surf.blit(screen.FONT_SMALL.render(line, True, tcol), (x, yy))
+                yy += 22
+            yy += 4
+
+    back = Button(40, HEIGHT - 60, 150, 40, i18n.t("menu.btn_back"))
+    while True:
+        dt = _tick()
+        mouse = pygame.mouse.get_pos()
+        hov = gmap.sector_at(mouse)
+        for e in pygame.event.get():
+            if _bug_intercept(e, "map"):
+                continue
+            if e.type == pygame.QUIT:
+                return "quit"
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_F11:
+                    toggle_fullscreen()
+                elif e.key == pygame.K_ESCAPE:
+                    return "menu"
+                elif e.key == pygame.K_TAB:
+                    bg = (bg + 1) % len(BG_MODES)
+                elif e.key == pygame.K_e:
+                    if await galaxy_editor() == "quit":
+                        return "quit"
+                    regions[:] = load_layout()       # pick up what the editor saved
+                    gmap = GalaxyMap(regions)
+                    adj = adjacency(regions)
+                    meta = read_meta()
+                elif pygame.K_1 <= e.key <= pygame.K_9:
+                    i = e.key - pygame.K_1
+                    if i < len(regions) and state(i) != "invaded":
+                        return i
+            if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                if hov is not None and state(hov) != "invaded":
+                    return hov
+                if back.click(e.pos):
+                    return "menu"
+        surf.fill((6, 4, 16))
+        gmap.draw_background(surf, BG_MODES[bg])
+        _title(surf, i18n.t("map.title"), i18n.t("map.subtitle"), 40)
+        _balance(surf, meta)
+        draw_regions(hov)
+        draw_panel(hov)
+        back.draw(surf, mouse)
+        surf.blit(screen.FONT_TINY.render(
+            i18n.t("map.toggle", mode=i18n.t("map.bg_" + BG_MODES[bg])), True, C_TEXT_GRAY),
+            (40, HEIGHT - 76))
+        surf.blit(screen.FONT_TINY.render(i18n.t("map.edit_hint"), True, C_TEXT_GRAY),
+                  (40, HEIGHT - 92))
+        _foot(surf)
+        _bug_overlay(surf, dt)
+        _finish(surf)
+        await asyncio.sleep(0)
+
+
+def _encounter_art(level, is_titan):
+    def draw(surf, rect, enabled):
+        col = C_HEART if is_titan else LEVEL_LOOKS.get(level["key"], {}).get("grid", C_NEON_CYAN)
+        blit_glow(surf, rect.centerx, rect.centery, 42, col, 0.4 if enabled else 0.12)
+        pygame.draw.circle(surf, col if enabled else (70, 50, 90), rect.center,
+                           22 if is_titan else 16, 2)
+    return draw
+
+
+async def region_screen(regions, ri):
+    """A region's four sectors and its Titan. Sectors unlock in order; the Titan
+    once the four are freed. Returns a sector index, "titan", "menu" or "quit"."""
+    region = regions[ri]
+    audio.music("title")
+    surf = screen.SCREEN = make_screen()
+    meta = read_meta()
+    n = len(region["sectors"])
+    items = list(range(n)) + ["titan"]
+    rects = _row_rects(len(items), 180, 250, 150, 14)
+
+    def done(s):
+        return meta["progress"].get(sector_id(region, s), {}).get("cleared")
+
+    def is_open(item):
+        if item == "titan":
+            return all(done(s) for s in range(n))
+        return item == 0 or done(item - 1)
+
+    def build(idx, item):
+        if item == "titan":
+            level, open_, sid = region["titan"], is_open("titan"), titan_id(region)
+            title = i18n.boss_name("titan")
+        else:
+            level, open_, sid = region["sectors"][item], is_open(item), sector_id(region, item)
+            title = i18n.level_name(level["key"]) if open_ else i18n.t("sectors.number", n=item + 1)
+        e = meta["progress"].get(sid, {})
+        best = e.get("best")
         if open_:
-            best = meta["best"][i]
-            lines = [(i18n.level_lore(key), C_TEXT),
-                     (i18n.t("sectors.boss", name=i18n.boss_name(level["boss"])), C_HEART),
-                     (i18n.t("sectors.deaths", deaths=meta["deaths"][i]), C_TEXT_GRAY),
+            lines = [(i18n.t("sectors.boss", name=i18n.boss_name(level["boss"])), C_HEART),
+                     (i18n.t("sectors.deaths", deaths=e.get("deaths", 0)), C_TEXT_GRAY),
                      (i18n.t("sectors.best", time=best) if best is not None
                       else i18n.t("sectors.not_cleared"),
                       C_NEON_CYAN if best is not None else C_TEXT_GRAY)]
-            title = i18n.level_name(key)
         else:
             lines = [(i18n.t("sectors.locked"), C_TEXT_GRAY),
                      (i18n.t("sectors.locked_sub"), C_TEXT_GRAY)]
-            title = i18n.t("sectors.number", n=i + 1)
-        cards.append(Card(rects[slot], title, lines, _sector_art(i),
-                          LEVEL_LOOKS[key]["grid"], open_))
-    back = Button(WIDTH // 2 - BTN_W // 2, HEIGHT - 110, BTN_W, 40, i18n.t("menu.btn_back"))
-    shown = LEVELS[selectable[min(meta["unlocked"], len(selectable)) - 1]]["key"]
+        accent = C_HEART if item == "titan" else C_NEON_CYAN
+        return Card(rects[idx], title, lines, _encounter_art(level, item == "titan"), accent, open_)
+
+    cards = [build(idx, item) for idx, item in enumerate(items)]
+    back = Button(WIDTH // 2 - BTN_W // 2, HEIGHT - 62, BTN_W, 40, i18n.t("menu.btn_back"))
     while True:
         dt = _tick()
+        mouse = pygame.mouse.get_pos()
         for e in pygame.event.get():
-            if _bug_intercept(e, "sectors"):
+            if _bug_intercept(e, "region"):
                 continue
             if e.type == pygame.QUIT:
                 return "quit"
@@ -538,30 +681,167 @@ async def sectors():
                 elif e.key == pygame.K_ESCAPE:
                     return "menu"
                 elif pygame.K_1 <= e.key <= pygame.K_9:
-                    slot = e.key - pygame.K_1
-                    if slot < len(cards) and cards[slot].enabled:
-                        return selectable[slot]
+                    i = e.key - pygame.K_1
+                    if i < len(cards) and cards[i].enabled:
+                        return items[i]
             if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
-                for slot, c in enumerate(cards):
+                for idx, c in enumerate(cards):
                     if c.click(e.pos):
-                        return selectable[slot]
+                        return items[idx]
                 if back.click(e.pos):
                     return "menu"
-        mouse = pygame.mouse.get_pos()
-        for slot, c in enumerate(cards):
-            if c.enabled and c.rect.collidepoint(mouse):
-                shown = LEVELS[selectable[slot]]["key"]
-        _background(surf, shown, dt, 165)
-        _title(surf, i18n.t("sectors.title"), i18n.t("sectors.subtitle"), 40)
+        _background(surf, region["sectors"][0]["key"], dt, 165)
+        _title(surf, region.get("name", "?"), i18n.t("region.subtitle"), 40)
         _balance(surf, meta)
         for c in cards:
             c.draw(surf, mouse)
         back.draw(surf, mouse)
-        for k, line in enumerate(i18n.lines("sectors.controls_help")):
-            t = screen.FONT_TINY.render(line, True, C_TEXT_GRAY)
-            surf.blit(t, t.get_rect(center=(WIDTH // 2, HEIGHT - 56 + k * 16)))
         _foot(surf)
         _bug_overlay(surf, dt)
+        _finish(surf)
+        await asyncio.sleep(0)
+
+
+async def galaxy_editor():
+    """Paint your own REGIONS onto the galaxy grid. Returns "menu" or "quit".
+
+    Left-drag paints the active region's cells, right-drag erases. N adds a
+    region, X removes it, R renames it, B marks it the start Bubble, S saves the
+    layout to saves/galaxy_layout.json (read back by the map and the campaign).
+    Each region keeps its four sectors + Titan (edited elsewhere for now)."""
+    audio.music("title")
+    surf = screen.SCREEN = make_screen()
+    regions = copy.deepcopy(load_layout())
+    gmap = GalaxyMap(regions)                 # geometry only; `owner` holds edits
+    owner = [[EMPTY] * COLS for _ in range(RINGS)]
+    for idx, reg in enumerate(regions):
+        for k, m in reg["cells"]:
+            if 0 <= k < RINGS and 0 <= m < COLS:
+                owner[k][m] = idx
+    active = 0
+    paint = None                              # "set"/"erase" while a button is held
+    renaming = False
+    notice = [None, 0.0]
+    palette = (C_NEON_CYAN, C_NEON_ORANGE, C_NEON_PINK, C_NEON_YELLOW,
+               C_NEON_PURPLE, C_THARG, C_SHIELD, C_HEART)
+    panel = pygame.Rect(600, 92, 342, 380)
+
+    def color(idx):
+        return palette[idx % len(palette)]
+
+    def flash(key):
+        notice[0], notice[1] = i18n.t(key), 2.0
+
+    def add():
+        nonlocal active
+        regions.append(new_region(i18n.t("editor.new_name", n=len(regions) + 1)))
+        active = len(regions) - 1
+
+    def remove():
+        nonlocal active
+        if len(regions) <= 1:
+            return
+        for k in range(RINGS):
+            for m in range(COLS):
+                if owner[k][m] == active:
+                    owner[k][m] = EMPTY
+                elif owner[k][m] > active:
+                    owner[k][m] -= 1
+        del regions[active]
+        active = max(0, min(active, len(regions) - 1))
+
+    def set_start():
+        for idx, reg in enumerate(regions):
+            reg["start"] = idx == active
+
+    def save():
+        for idx, reg in enumerate(regions):
+            reg["cells"] = [[k, m] for k in range(RINGS) for m in range(COLS)
+                            if owner[k][m] == idx]
+        flash("editor.saved" if save_layout(regions) else "editor.save_failed")
+
+    while True:
+        dt = _tick()
+        mouse = pygame.mouse.get_pos()
+        cell = gmap.cell_at(mouse)
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "quit"
+            if e.type == pygame.KEYDOWN:
+                if renaming:
+                    reg = regions[active]
+                    if e.key in (pygame.K_RETURN, pygame.K_ESCAPE):
+                        renaming = False
+                    elif e.key == pygame.K_BACKSPACE:
+                        reg["name"] = reg.get("name", "")[:-1]
+                    elif e.unicode.isprintable() and len(reg.get("name", "")) < 22:
+                        reg["name"] = reg.get("name", "") + e.unicode
+                    continue
+                if e.key == pygame.K_F11:
+                    toggle_fullscreen()
+                elif e.key == pygame.K_ESCAPE:
+                    return "menu"
+                elif e.key == pygame.K_TAB:
+                    active = (active + 1) % len(regions)
+                elif pygame.K_1 <= e.key <= pygame.K_9 and e.key - pygame.K_1 < len(regions):
+                    active = e.key - pygame.K_1
+                elif e.key == pygame.K_n:
+                    add()
+                elif e.key in (pygame.K_x, pygame.K_DELETE):
+                    remove()
+                elif e.key == pygame.K_b:
+                    set_start()
+                elif e.key in (pygame.K_r, pygame.K_F2):
+                    renaming, regions[active]["name"] = True, regions[active].get("name", "")
+                elif e.key == pygame.K_s:
+                    save()
+            elif e.type == pygame.MOUSEBUTTONDOWN:
+                paint = "set" if e.button == 1 else "erase" if e.button == 3 else paint
+            elif e.type == pygame.MOUSEBUTTONUP:
+                paint = None
+        if paint and cell and not panel.collidepoint(mouse):
+            owner[cell[0]][cell[1]] = active if paint == "set" else EMPTY
+        if notice[1] > 0:
+            notice[1] -= dt
+
+        surf.fill((6, 4, 16))
+        blit_glow(surf, *gmap.center, int(gmap.core * 2.2), C_NEON_YELLOW, 0.3)
+        grid = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for k in range(RINGS):
+            for m in range(COLS):
+                poly = [(int(x), int(y)) for x, y in gmap.cell_polygon(k, m)]
+                if owner[k][m] != EMPTY:
+                    pygame.draw.polygon(grid, (*color(owner[k][m]),
+                                               150 if owner[k][m] == active else 70), poly)
+                pygame.draw.polygon(grid, (90, 80, 140, 80), poly, 1)
+        surf.blit(grid, (0, 0))
+        if cell and not panel.collidepoint(mouse):
+            pygame.draw.polygon(surf, (255, 255, 255),
+                                [(int(x), int(y)) for x, y in gmap.cell_polygon(*cell)], 2)
+        _title(surf, i18n.t("editor.title"), i18n.t("editor.subtitle"), 36)
+        pygame.draw.rect(surf, C_PANEL, panel, border_radius=8)
+        pygame.draw.rect(surf, C_PANEL_BORDER, panel, 2, border_radius=8)
+        y = panel.y + 12
+        for idx in range(len(regions)):
+            sw = pygame.Rect(panel.x + 12, y + 2, 14, 14)
+            pygame.draw.rect(surf, color(idx), sw)
+            if idx == active:
+                pygame.draw.rect(surf, (255, 255, 255), sw.inflate(6, 6), 1)
+            tag = "  " + i18n.t("editor.bubble_tag") if regions[idx].get("start") else ""
+            name = (regions[idx].get("name", "?") + tag
+                    + ("_" if renaming and idx == active else ""))
+            surf.blit(screen.FONT_SMALL.render(f"{idx + 1}. {name}", True,
+                                               C_TEXT if idx == active else C_TEXT_GRAY),
+                      (panel.x + 36, y))
+            y += 22
+        hy = panel.bottom - 96
+        for line in i18n.lines("editor.help"):
+            surf.blit(screen.FONT_TINY.render(line, True, C_TEXT_GRAY), (panel.x + 12, hy))
+            hy += 15
+        if notice[0] and notice[1] > 0:
+            surf.blit(screen.FONT_SMALL.render(notice[0], True, C_NEON_CYAN),
+                      (panel.x + 12, panel.bottom - 26))
+        _foot(surf)
         _finish(surf)
         await asyncio.sleep(0)
 
