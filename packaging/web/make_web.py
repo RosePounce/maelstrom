@@ -5,8 +5,8 @@ pygbag archives the whole folder it is pointed at, and the filters of
 repository it also packs `.venv`, `docs` and `tools/ships`, which no browser
 ever loads. So the build runs on a staging copy, `build/maelstrom`, holding
 `main.py`, `menu.py`, `maelstrom`, `settings` and `assets` and nothing else.
-The copy also keeps the `-pygbag.ogg` tracks pygbag writes beside each source
-track (ffmpeg, mono 22 kHz) out of the working tree.
+The soundtrack in that copy is then re-encoded to mono 22 kHz (see
+`shrink_audio`), so the repository's full-quality tracks are left untouched.
 
 The result is packed flat into `dist/Maelstrom-<version>-web.zip`:
 `index.html` at the root of the zip is what itch.io expects. That page picks
@@ -41,6 +41,8 @@ DIST = os.path.join(ROOT, "dist")
 INCLUDE = ("main.py", "menu.py", "maelstrom", "settings", "assets", "pygbag.ini")
 # left behind by a former build: pygbag reuses them instead of optimizing again
 DROP = ("__pycache__", "*.pyc", "*-pygbag.*")
+# audio shrunk to mono 22 kHz before packing (see shrink_audio)
+AUDIO_EXT = (".ogg", ".mp3", ".wav", ".flac")
 
 PAYLOADS = ("maelstrom.apk", "maelstrom.tar.gz")
 EXPECTED = ("index.html", "favicon.png") + PAYLOADS
@@ -68,11 +70,60 @@ def stage():
     print("staged:", STAGE)
 
 
+def shrink_audio():
+    """Re-encode the staged soundtrack in place to mono 22 kHz, as pygbag would.
+
+    pygbag only runs its ffmpeg pass when it builds on Linux (`optimizing.py`
+    guards it with `sys.platform == "linux"`); on Windows it packs the tracks at
+    full size. So we do that same step ourselves on the staging copy -- the very
+    command pygbag uses, `ffmpeg -ac 1 -r 22000` -- which roughly halves the
+    soundtrack and leaves the repository's assets untouched. Without ffmpeg the
+    tracks are packed as they are and the build still works, just heavier.
+    """
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        print("WARNING: ffmpeg not found, web soundtrack packed at full size")
+        return
+    before = after = 0
+    for folder, _dirs, files in os.walk(os.path.join(STAGE, "assets")):
+        for name in files:
+            if not name.lower().endswith(AUDIO_EXT):
+                continue
+            src = os.path.join(folder, name)
+            tmp = os.path.join(folder, name + ".tmp.ogg")
+            dst = os.path.splitext(src)[0] + ".ogg"
+            before += os.path.getsize(src)
+            subprocess.run(
+                [ffmpeg, "-y", "-loglevel", "error", "-i", src,
+                 "-ac", "1", "-r", "22000", tmp],
+                check=True,
+            )
+            os.replace(tmp, dst)
+            if dst != src:          # a .mp3/.wav/.flac source became a .ogg
+                os.remove(src)
+            after += os.path.getsize(dst)
+    if before:
+        print(f"soundtrack: {before / 1e6:.1f} MB -> {after / 1e6:.1f} MB")
+
+
 def build():
-    """Runs pygbag on the staging copy. Writes `build/web` inside it."""
+    """Runs pygbag on the staging copy. Writes `build/web` inside it.
+
+    The custom synthwave loading page (`loader.tmpl`, beside this script) is
+    copied into the staging folder so pygbag, launched there, finds it as a
+    local template instead of fetching its generic default from the CDN.
+    """
+    template = os.path.join(STAGE, "loader.tmpl")
+    shutil.copy2(os.path.join(HERE, "loader.tmpl"), template)
+    # The default gate (--ume_block 1) is kept on purpose: browsers block audio
+    # until a user gesture, so pygbag waits for one before running. The loading
+    # page invites that click upfront ("click to play"), so the gesture usually
+    # lands while the payload is still downloading -- the menu then appears with
+    # its music already unlocked, instead of behind a separate prompt screen.
     subprocess.run(
         [sys.executable, "-m", "pygbag", "--build",
          "--title", TITLE,
+         "--template", "loader.tmpl",
          "--icon", "assets/favicon.png", "."],
         cwd=STAGE, check=True,
     )
@@ -129,6 +180,7 @@ def pack(version):
 def main():
     version = sys.argv[1] if len(sys.argv) > 1 else "dev"
     stage()
+    shrink_audio()
     build()
     if not verify():
         return 1
