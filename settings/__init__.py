@@ -15,8 +15,8 @@ None of this imports the game code. Values that are CREATED at runtime
 """
 
 GAME_NAME = "Maelstrom"          # proper noun: the same in every language
-VERSION = "1.0.0"
-VERSION_LABEL = f"{GAME_NAME}   -   beta {VERSION}"
+VERSION = "1.1.1"
+VERSION_LABEL = f"{GAME_NAME}  -  {VERSION}"
 
 # The one address an installed build sends its bug reports to: a Cloudflare
 # Worker (see relay/) that forwards them and holds no secret in this public

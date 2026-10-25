@@ -26,13 +26,25 @@ pip install -r requirements.txt      # pygame (Python < 3.14) ou pygame-ce (3.14
 python main.py
 ```
 
-Dans le navigateur, via **pygbag** (depuis CE dossier, qui porte `pygbag.ini`) :
+Dans le navigateur, via **pygbag** :
 
 ```bash
-cd maelstrom
-pygbag --build --app_name maelstrom --title "Maelstrom" --icon assets/favicon.png .
-pygbag .                  # idem, mais sert sur http://localhost:8000
+pip install pygbag                   # + ffmpeg, qui allege la bande-son
+python packaging/web/make_web.py     # -> dist/Maelstrom-dev-web.zip
+python -m http.server -d build/maelstrom/build/web 8000   # http://localhost:8000
 ```
+
+`packaging/web/make_web.py` recopie d'abord dans `build/maelstrom` les seuls
+fichiers que le jeu lit (`main.py`, `menu.py`, `maelstrom`, `settings`,
+`assets`), puis lance pygbag dessus. Vise droit sur le depot, pygbag embarque
+aussi `.venv`, `docs` et `tools/ships` -- les filtres de `pygbag.ini` ne
+rejettent qu'un niveau de dossier -- et le telechargement triple. Le script
+verifie ce qu'il a construit, puis en fait un zip : `index.html` a la racine
+de l'archive, ce qu'attend itch.io, et les deux charges utiles (`.apk` pour
+itch.io, `.tar.gz` ailleurs, `index.html` choisit a l'execution), donc il
+s'envoie tel quel sur itch.io comme sur n'importe quel hebergeur statique.
+C'est ce que fait le job `web` de `.github/workflows/packages.yml` a chaque
+tag.
 
 `F11` bascule fenetre <-> plein ecran partout. `Echap` ou `P` en partie ouvre la
 pause ; `Echap` a l'accueil demande confirmation avant de fermer (bureau).
