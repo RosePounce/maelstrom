@@ -15,7 +15,7 @@ import logging
 import os
 import sys
 
-from settings.balance import DEFAULT_SHIP, LEVELS, MISSILE_START, SHIPS
+from settings.balance import DEFAULT_SHIP, HANGAR, LEVELS, MISSILE_START, SHIPS
 from settings.ui import PROJECT_DIR, WEB
 
 
@@ -163,7 +163,11 @@ def read_meta():
         meta["alloys"] = max(0, int(data.get("alloys", 0)))
         hangar = data.get("hangar", {})
         if isinstance(hangar, dict):
-            meta["hangar"] = {str(k): max(0, int(v)) for k, v in hangar.items()}
+            # Keep only known upgrades and clamp each level to its current
+            # cap: a save made before a cap was lowered would otherwise show
+            # "Nv 7/5" and grant more than the intended bonus.
+            meta["hangar"] = {k: max(0, min(HANGAR[k]["max"], int(v)))
+                              for k, v in hangar.items() if k in HANGAR}
         ship = data.get("ship")
         meta["ship"] = ship if ship in SHIPS else DEFAULT_SHIP
         meta["unlocked"] = max(1, min(count, int(data.get("unlocked", 1))))
