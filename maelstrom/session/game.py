@@ -25,8 +25,8 @@ import random
 import pygame
 
 from settings.balance import (
-    BOSS_CLEAR_WAIT, BOSS_WARNING, BOSSES, COOP_RESPAWN, HANGAR, LEVELS,
-    MISSILE_MAX, MISSILE_START,
+    BOSS_CLEAR_WAIT, BOSS_WARNING, BOSSES, COOP_DAMAGE_SCALE, COOP_HP_SCALE,
+    COOP_RESPAWN, HANGAR, LEVELS, MISSILE_MAX, MISSILE_START,
 )
 from settings.ui import (
     BANNER_TIME, C_NEON_CYAN, C_NEON_RED, C_PLAYERS, C_TEXT_GRAY, HEIGHT,
@@ -61,6 +61,10 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
         self.me = coop.me if coop else 0         # index of the local ship
         # who flies: ship, hangar and per-sector loadouts of each player
         self.players = coop.players if coop else [profile(self.meta)]
+        # Co-op makes enemies tougher to offset the second ship; both sides set
+        # the hp scale so the client's boss health bar reads the same max.
+        self.coop_hp_scale = COOP_HP_SCALE if coop else 1.0
+        self.coop_damage_scale = COOP_DAMAGE_SCALE if coop else 1.0
         self.carry = carry
         self.level_index = level_index
         self.level = LEVELS[level_index]
@@ -317,7 +321,8 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
                     self.enter_warning()
         elif self.phase == "warning":
             if self.phase_t >= BOSS_WARNING:
-                self.boss = make_boss(self.level["boss"], self.level_index)
+                self.boss = make_boss(self.level["boss"], self.level_index,
+                                      self.coop_hp_scale)
                 self.phase, self.phase_t = "boss", 0.0
         elif self.phase == "boss":
             self.boss.update(dt, self)
@@ -403,7 +408,7 @@ class Game(Combat, Controls, Hud, BugForm, Coop):
                                            0.28, (255, 120, 170), 2))
 
     def spawn_enemy(self, kind, x, y, params=None):
-        enemy = Enemy(kind, x, y, self.level_index, params)
+        enemy = Enemy(kind, x, y, self.level_index, params, self.coop_hp_scale)
         enemy.uid = self.next_uid
         self.next_uid += 1
         self.enemies.append(enemy)

@@ -34,7 +34,8 @@ class Combat:
     # --- shots --------------------------------------------------------------
 
     def enemy_fire(self, x, y, angle, speed):
-        dmg = ENEMY_SHOT_DAMAGE * (1 + LEVEL_DAMAGE_SCALE * self.level_index)
+        dmg = (ENEMY_SHOT_DAMAGE * (1 + LEVEL_DAMAGE_SCALE * self.level_index)
+               * self.coop_damage_scale)
         self.enemy_shots.append(Shot(x, y, math.cos(angle) * speed,
                                      math.sin(angle) * speed, dmg, "enemy",
                                      radius=5, life=8.0))
@@ -102,16 +103,16 @@ class Combat:
                         self.on_ship_hit(ship)
             for e in self.enemies:
                 if e.hp > 0 and _close(e.x, e.y, ship.x, ship.y, ship.hitbox + e.radius * 0.8):
-                    if ship.hit(e.contact):
+                    if ship.hit(e.contact * self.coop_damage_scale):
                         self.on_ship_hit(ship)
                         e.hp -= CONTACT_SELF_DAMAGE
                     if e.kind == "mine":
                         e.hp = 0
             if boss and boss.hit_test(ship.x, ship.y, ship.hitbox):
-                if ship.hit(BOSS_CONTACT):
+                if ship.hit(BOSS_CONTACT * self.coop_damage_scale):
                     self.on_ship_hit(ship)
             if boss and hasattr(boss, "beam_hit") and boss.beam_hit(ship.x, ship.y, ship.hitbox):
-                if ship.hit(BOSS_BEAM_DAMAGE):       # the Titan's death ray
+                if ship.hit(BOSS_BEAM_DAMAGE * self.coop_damage_scale):   # the Titan's death ray
                     self.on_ship_hit(ship)
             for c in self.clouds:
                 if _close(c.x, c.y, ship.x, ship.y, c.radius * 0.8):

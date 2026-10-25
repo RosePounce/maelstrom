@@ -276,3 +276,7 @@ BOSS_CLEAR_WAIT = 5.0          # max wait for the last ships before the boss
 
 COOP_RESPAWN = 6.0             # seconds a downed ship waits before it returns
 COOP_REVIVE_HULL = 0.5         # part of its hull it returns with
+# Two ships double the firepower, so enemies (and bosses) carry more health
+# and hit a little harder, to keep a sector as tense in co-op as it is solo.
+COOP_HP_SCALE = 1.8            # enemy and boss-heart hp, in co-op
+COOP_DAMAGE_SCALE = 1.25       # enemy and boss damage dealt, in co-op

@@ -77,7 +77,7 @@ class Enemy:
     """A Thargoid ship (or a mine, or an asteroid). Its behaviour is the
     method `_<kind>`, called on every frame."""
 
-    def __init__(self, kind, x, y, level_index, params=None):
+    def __init__(self, kind, x, y, level_index, params=None, hp_scale=1.0):
         d = ENEMIES[kind]
         p = params or {}
         self.kind = kind
@@ -85,7 +85,7 @@ class Enemy:
         self.y0 = y
         self.radius = p.get("radius", d["radius"])
         size = (self.radius / d["radius"]) ** 2          # big asteroids last
-        self.hp_max = d["hp"] * (1 + LEVEL_HP_SCALE * level_index) * size
+        self.hp_max = d["hp"] * (1 + LEVEL_HP_SCALE * level_index) * size * hp_scale
         self.hp = self.hp_max
         self.speed = d["speed"] * p.get("speed_mult", 1.0)
         self.contact = d["contact"] * (1 + LEVEL_DAMAGE_SCALE * level_index)
@@ -237,12 +237,13 @@ class Interceptor:
     open, full damage) alternate; each heart destroyed staggers it (no
     damage) before the next heart. It fires its patterns in turn."""
 
-    def __init__(self, key, level_index):
+    def __init__(self, key, level_index, hp_scale=1.0):
         b = BOSSES[key]
         self.key = key
+        self.hp_scale = hp_scale             # co-op: hearts carry more health
         self.hearts = b["hearts"]
         self.heart = 1                       # the heart being shot, 1-based
-        self.heart_hp_max = b["heart_hp"]
+        self.heart_hp_max = b["heart_hp"] * hp_scale
         self.heart_hp = self.heart_hp_max
         self.radius = b["radius"]
         self.period = b["period"]
@@ -460,8 +461,8 @@ class Titan(Interceptor):
     for good at once: each time its pods are all destroyed it RISES again,
     recoloured and stronger (`forms` in BOSSES), until its last form dies."""
 
-    def __init__(self, key, level_index):
-        super().__init__(key, level_index)
+    def __init__(self, key, level_index, hp_scale=1.0):
+        super().__init__(key, level_index, hp_scale)
         b = BOSSES[key]
         self.form = 0
         self.form_count = b.get("forms", 1)
@@ -477,7 +478,8 @@ class Titan(Interceptor):
     def _apply_form(self):
         """Health, cadence and colours of the current form."""
         b = BOSSES[self.key]
-        self.heart_hp_max = b["heart_hp"] * b.get("form_hp", 1.0) ** self.form
+        self.heart_hp_max = (b["heart_hp"] * b.get("form_hp", 1.0) ** self.form
+                             * self.hp_scale)
         self.period = b["period"] * b.get("form_period", 1.0) ** self.form
         base = BOSS_LOOKS[self.key]
         tints = base.get("form_tints", [{}])
@@ -679,8 +681,8 @@ class Titan(Interceptor):
         blit_glow(surf, x, y, int(r * 0.7), beam_col, 0.8)
 
 
-def make_boss(key, level_index):
+def make_boss(key, level_index, hp_scale=1.0):
     """The boss of a sector: the Titan finale, or a plain Interceptor."""
     if key == "titan":
-        return Titan(key, level_index)
-    return Interceptor(key, level_index)
+        return Titan(key, level_index, hp_scale)
+    return Interceptor(key, level_index, hp_scale)

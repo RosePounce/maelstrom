@@ -326,7 +326,7 @@ class Coop:
             self.boss = None
         else:
             if self.boss is None or self.boss.key != b[0]:
-                self.boss = make_boss(b[0], self.level_index)
+                self.boss = make_boss(b[0], self.level_index, self.coop_hp_scale)
             boss = self.boss
             (_, boss.x, boss.y, boss.state, boss.state_t, boss.t, boss.open,
              boss.hit_flash, boss.heart, boss.heart_hp) = b[:10]
